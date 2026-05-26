@@ -1,0 +1,46 @@
+# Ring — base compose stack.
+# Always-on services: postgres + Caddy reverse proxy.
+# The `app` service lives in docker-compose.prod.yml (built image) so dev can
+# run the Go binary on the host via `air` with live reload.
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: ring
+      POSTGRES_PASSWORD: ring
+      POSTGRES_DB: ring
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ring -d ring"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    networks:
+      - internal
+
+  proxy:
+    image: caddy:2
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      RING_FQDN: ${RING_FQDN:-ring.localtest.me}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - edge
+      - internal
+    depends_on:
+      - db
+
+networks:
+  edge: {}
+  internal: {}
+
+volumes:
+  pgdata: {}
+  caddy_data: {}
+  caddy_config: {}

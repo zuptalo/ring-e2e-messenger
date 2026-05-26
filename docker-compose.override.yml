@@ -1,0 +1,8 @@
+# Ring — dev override (auto-merged by `docker compose` when present).
+# In dev the Go binary runs on the host via `air` (or `go run`) on :8080;
+# Caddy in the compose stack reverse-proxies to host.docker.internal:8080.
+# No `app` service runs inside compose in dev.
+services:
+  proxy:
+    extra_hosts:
+      - "host.docker.internal:host-gateway"

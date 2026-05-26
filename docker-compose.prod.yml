@@ -1,0 +1,31 @@
+# Ring — prod overlay. Run with:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+# Adds the `app` service (built from the repo Dockerfile) and re-points the
+# Caddy upstream to the in-compose `app:8080`.
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: ring:latest
+    environment:
+      DATABASE_URL: postgres://ring:ring@db:5432/ring?sslmode=disable
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LISTEN_ADDR: ":8080"
+      PUBLIC_URL: https://${RING_FQDN}
+      VAPID_PUBLIC_KEY: ${VAPID_PUBLIC_KEY}
+      VAPID_PRIVATE_KEY: ${VAPID_PRIVATE_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - internal
+    restart: unless-stopped
+
+  proxy:
+    # In prod the upstream is the in-compose `app`, not host.docker.internal.
+    environment:
+      RING_FQDN: ${RING_FQDN}
+      RING_UPSTREAM: app:8080
+    depends_on:
+      - app

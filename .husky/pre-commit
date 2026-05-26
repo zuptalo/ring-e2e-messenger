@@ -1,0 +1,47 @@
+#!/usr/bin/env sh
+# Ring pre-commit: orchestrates two-stack gates per constitution §C.
+# Each stack runs only if its directory + manifest exist, so the hook
+# functions correctly at every stage of the project's evolution.
+set -e
+
+repo_root=$(git rev-parse --show-toplevel)
+cd "$repo_root"
+
+# ---- Frontend ---------------------------------------------------------------
+if [ -f frontend/package.json ]; then
+  echo "→ frontend: lint-staged + vitest (changed) + tsc --noEmit"
+  if ! (cd frontend && pnpm exec lint-staged); then
+    echo "✗ frontend: lint-staged failed"; exit 1
+  fi
+  if ! (cd frontend && pnpm exec vitest run --changed --passWithNoTests); then
+    echo "✗ frontend: vitest failed"; exit 1
+  fi
+  if ! (cd frontend && pnpm exec tsc --noEmit); then
+    echo "✗ frontend: tsc --noEmit failed"; exit 1
+  fi
+fi
+
+# ---- Backend ----------------------------------------------------------------
+if [ -f backend/go.mod ]; then
+  echo "→ backend: gofumpt + golangci-lint + go test -short + govulncheck"
+
+  staged_go=$(git diff --cached --name-only --diff-filter=ACMR | grep '^backend/.*\.go$' || true)
+  if [ -n "$staged_go" ]; then
+    # Format staged Go files and re-stage any modifications
+    paths_in_backend=$(echo "$staged_go" | sed 's|^backend/||')
+    (cd backend && echo "$paths_in_backend" | xargs gofumpt -l -w)
+    echo "$staged_go" | xargs git add
+  fi
+
+  if ! (cd backend && golangci-lint run --new-from-rev HEAD --fix ./...); then
+    echo "✗ backend: golangci-lint failed"; exit 1
+  fi
+  if ! (cd backend && go test -short ./...); then
+    echo "✗ backend: go test -short failed"; exit 1
+  fi
+  if ! (cd backend && govulncheck ./...); then
+    echo "✗ backend: govulncheck failed"; exit 1
+  fi
+fi
+
+exit 0
