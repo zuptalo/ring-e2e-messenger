@@ -1,0 +1,32 @@
+#!/usr/bin/env sh
+# Ring pre-push: enforce branch policy per constitution §A.
+# - Pushes to main are rejected (PR-only).
+# - Branch name must match one of the three numeric ranges.
+set -e
+
+protected_branch='main'
+branch_re='^(0[0-9]{2}|1[0-9]{2}|2[0-9]{2})-[a-z0-9-]+$'
+
+# Read each ref being pushed. Format per `git help githooks`:
+#   <local-ref> <local-sha> <remote-ref> <remote-sha>
+while read -r local_ref local_sha remote_ref remote_sha; do
+  # Skip deletion pushes
+  if [ "$local_sha" = "0000000000000000000000000000000000000000" ]; then
+    continue
+  fi
+  remote_branch=$(echo "$remote_ref" | sed 's|refs/heads/||')
+
+  if [ "$remote_branch" = "$protected_branch" ]; then
+    echo "✗ pre-push: direct pushes to '$protected_branch' are prohibited; open a PR instead"
+    exit 1
+  fi
+
+  if ! echo "$remote_branch" | grep -Eq "$branch_re"; then
+    echo "✗ pre-push: branch '$remote_branch' does not match required pattern"
+    echo "  Required: $branch_re"
+    echo "  Ranges: 001-099 (planned) | 101-199 (ad-hoc) | 201-299 (hotfix)"
+    exit 1
+  fi
+done
+
+exit 0

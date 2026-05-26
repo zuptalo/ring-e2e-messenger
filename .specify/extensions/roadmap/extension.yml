@@ -1,0 +1,23 @@
+name: roadmap
+version: 0.1.0
+description: |
+  Living-roadmap extension. Each /speckit-<phase> command, on completion,
+  triggers a corresponding `speckit.roadmap.mark-<stage>-done` command from
+  this extension which flips the stage column in ROADMAP.md from ⬜ to ✅.
+  Constitution §F (ROADMAP.md as Living Artifact).
+
+commands:
+  - name: speckit.roadmap.mark-specify-done
+    description: Flip the Specify column for the active spec to ✅
+  - name: speckit.roadmap.mark-clarify-done
+    description: Flip the Clarify column for the active spec to ✅
+  - name: speckit.roadmap.mark-plan-done
+    description: Flip the Plan column for the active spec to ✅
+  - name: speckit.roadmap.mark-tasks-done
+    description: Flip the Tasks column for the active spec to ✅
+  - name: speckit.roadmap.mark-analyze-done
+    description: Flip the Analyze column for the active spec to ✅
+  - name: speckit.roadmap.mark-taskstoissues-done
+    description: Flip the T→I column for the active spec to ✅
+  - name: speckit.roadmap.mark-implement-done
+    description: Flip the Implement column for the active spec to ✅

@@ -1,0 +1,21 @@
+# Ring — reverse proxy.
+# Terminates TLS for ${RING_FQDN}. In dev, RING_UPSTREAM defaults to
+# host.docker.internal:8080 (Go binary running on the host). In prod, the
+# docker-compose.prod.yml override sets RING_UPSTREAM=app:8080.
+#
+# For ring.localtest.me (and any *.localhost / *.localtest.me), Caddy issues
+# an internal-CA cert automatically. Run `make trust` once to install Caddy's
+# root CA into the host trust store.
+#
+# For a public FQDN, Caddy attempts ACME (Let's Encrypt). Ensure the FQDN
+# resolves to the host and ports 80/443 are reachable.
+
+{$RING_FQDN} {
+  encode zstd gzip
+  reverse_proxy {$RING_UPSTREAM:host.docker.internal:8080}
+
+  log {
+    output stdout
+    format json
+  }
+}

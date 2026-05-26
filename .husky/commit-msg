@@ -1,0 +1,47 @@
+#!/usr/bin/env sh
+# Ring commit-msg: enforce Authorship + AI-Tool trailers per constitution §B.
+set -e
+
+msg_file="$1"
+msg=$(cat "$msg_file")
+
+# Allow merge commits to skip
+if echo "$msg" | head -1 | grep -q '^Merge '; then
+  exit 0
+fi
+# Allow revert commits to skip
+if echo "$msg" | head -1 | grep -q '^Revert "'; then
+  exit 0
+fi
+
+# Authorship trailer
+if ! echo "$msg" | grep -Eq '^Authorship: (AI Generated|AI Assisted|Human)$'; then
+  echo "✗ commit-msg: missing or invalid 'Authorship:' trailer"
+  echo "  Must be exactly one of: 'AI Generated', 'AI Assisted', 'Human'"
+  exit 1
+fi
+
+# AI-Tool trailer presence
+if ! echo "$msg" | grep -Eq '^AI-Tool: '; then
+  echo "✗ commit-msg: missing 'AI-Tool:' trailer"
+  exit 1
+fi
+
+authorship=$(echo "$msg" | grep -E '^Authorship:' | sed -E 's/^Authorship: //')
+aitool=$(echo "$msg" | grep -E '^AI-Tool:' | sed -E 's/^AI-Tool: //')
+
+# Cross-rule: Authorship: Human => AI-Tool: none
+if [ "$authorship" = "Human" ] && [ "$aitool" != "none" ]; then
+  echo "✗ commit-msg: 'Authorship: Human' requires 'AI-Tool: none' (got: '$aitool')"
+  exit 1
+fi
+
+# AI-Tool value(s) validation — comma-separated allowed, each from the allowlist
+allowed='^(Claude|Gemini|Cursor|Other|none)(, *(Claude|Gemini|Cursor|Other))*$'
+if ! echo "$aitool" | grep -Eq "$allowed"; then
+  echo "✗ commit-msg: 'AI-Tool: $aitool' contains invalid value(s)"
+  echo "  Allowed: Claude, Gemini, Cursor, Other (comma-separated) — or 'none' alone"
+  exit 1
+fi
+
+exit 0
