@@ -33,17 +33,17 @@ Shared infrastructure (`Makefile`, `Dockerfile`, `Caddyfile`, `docker-compose*.y
 
 **Purpose**: Bring the `backend/` and `frontend/` source trees into existence so subsequent phases have somewhere to put files. Each task here unblocks the corresponding tree's tooling.
 
-- [ ] T001 [P] Create `backend/` directory tree per `plan.md` (mkdir: `backend/cmd/ring`, `backend/internal/{server,web,db,version}`, `backend/internal/web/dist`, `backend/migrations`, `backend/test/integration`) and add `.gitkeep` files in `backend/internal/web/dist/.gitkeep` and `backend/migrations/.gitkeep`.
+- [X] T001 [P] Create `backend/` directory tree per `plan.md` (mkdir: `backend/cmd/ring`, `backend/internal/{server,web,db,version}`, `backend/internal/web/dist`, `backend/migrations`, `backend/test/integration`) and add `.gitkeep` files in `backend/internal/web/dist/.gitkeep` and `backend/migrations/.gitkeep`.
 
-- [ ] T002 Initialize Go module at `backend/go.mod` with `module github.com/zuptalo/ring-e2ee-messenger/backend` and `go 1.26`. Add dependencies via `go get`: `github.com/jackc/pgx/v5/pgxpool`, `github.com/testcontainers/testcontainers-go`, `github.com/testcontainers/testcontainers-go/modules/postgres`. Commit `backend/go.sum`.
+- [X] T002 Initialize Go module at `backend/go.mod` with `module github.com/zuptalo/ring-e2ee-messenger/backend` and `go 1.26`. Add dependencies via `go get`: `github.com/jackc/pgx/v5/pgxpool`, `github.com/testcontainers/testcontainers-go`, `github.com/testcontainers/testcontainers-go/modules/postgres`. Commit `backend/go.sum`.
 
-- [ ] T003 [P] Initialize SvelteKit project at `frontend/` using the official `create-svelte` skeleton template with TypeScript, ESLint, Prettier, Vitest, and `@sveltejs/adapter-static`. Result: `frontend/package.json`, `frontend/pnpm-lock.yaml`, `frontend/svelte.config.js`, `frontend/vite.config.ts`, `frontend/tsconfig.json`, `frontend/src/`, `frontend/static/`. Pin `pnpm` via `corepack` (`packageManager` field in `frontend/package.json`).
+- [X] T003 [P] Initialize SvelteKit project at `frontend/` using the official `create-svelte` skeleton template with TypeScript, ESLint, Prettier, Vitest, and `@sveltejs/adapter-static`. Result: `frontend/package.json`, `frontend/pnpm-lock.yaml`, `frontend/svelte.config.js`, `frontend/vite.config.ts`, `frontend/tsconfig.json`, `frontend/src/`, `frontend/static/`. Pin `pnpm` via `corepack` (`packageManager` field in `frontend/package.json`).
 
-- [ ] T004 [P] Add `frontend/.gitignore` entries for `.svelte-kit/`, `build/`, `node_modules/` (verify they are not already covered by the repo-root `.gitignore`; add only what is missing).
+- [X] T004 [P] Add `frontend/.gitignore` entries for `.svelte-kit/`, `build/`, `node_modules/` (verify they are not already covered by the repo-root `.gitignore`; add only what is missing).
 
-- [ ] T005 Update Dockerfile at repo root (`Dockerfile`) to accept `ARG RING_VERSION` and `ARG RING_COMMIT`, propagate them to the frontend stage as `ENV VITE_RING_VERSION=$RING_VERSION` / `ENV VITE_RING_COMMIT=$RING_COMMIT`, and to the backend stage `RUN go build` line as `-ldflags="-s -w -X github.com/zuptalo/ring-e2ee-messenger/backend/internal/version.Version=$RING_VERSION -X github.com/zuptalo/ring-e2ee-messenger/backend/internal/version.Commit=$RING_COMMIT"`. Provide sensible defaults (`dev` / `unknown`) so `docker build` works without args.
+- [X] T005 Update Dockerfile at repo root (`Dockerfile`) to accept `ARG RING_VERSION` and `ARG RING_COMMIT`, propagate them to the frontend stage as `ENV VITE_RING_VERSION=$RING_VERSION` / `ENV VITE_RING_COMMIT=$RING_COMMIT`, and to the backend stage `RUN go build` line as `-ldflags="-s -w -X github.com/zuptalo/ring-e2ee-messenger/backend/internal/version.Version=$RING_VERSION -X github.com/zuptalo/ring-e2ee-messenger/backend/internal/version.Commit=$RING_COMMIT"`. Provide sensible defaults (`dev` / `unknown`) so `docker build` works without args.
 
-- [ ] T006 Update `Makefile` `build` and `image` targets to compute `RING_VERSION` (e.g., `git describe --tags --dirty --always 2>/dev/null || echo dev`) and `RING_COMMIT` (`git rev-parse HEAD 2>/dev/null || echo unknown`), then pass both to the host `go build -ldflags` invocation and the `docker build --build-arg` invocation. Add a `version` make target that echoes the resolved values for debugging.
+- [X] T006 Update `Makefile` `build` and `image` targets to compute `RING_VERSION` (e.g., `git describe --tags --dirty --always 2>/dev/null || echo dev`) and `RING_COMMIT` (`git rev-parse HEAD 2>/dev/null || echo unknown`), then pass both to the host `go build -ldflags` invocation and the `docker build --build-arg` invocation. Add a `version` make target that echoes the resolved values for debugging.
 
 **Checkpoint**: `backend/` and `frontend/` directory trees exist with module/package roots initialized. `make install` succeeds end-to-end. No application code yet.
 
@@ -55,19 +55,19 @@ Shared infrastructure (`Makefile`, `Dockerfile`, `Caddyfile`, `docker-compose*.y
 
 **⚠️ CRITICAL**: No user story work can begin until this phase is complete.
 
-- [ ] T007 [P] Create `backend/internal/version/version.go` exporting `var Version = "dev"` and `var Commit = "unknown"`. These are intentionally `var` (not `const`) so `-ldflags -X` can overwrite them. Add a passing unit test `backend/internal/version/version_test.go` that asserts both variables are non-empty (defensive against future `const` regressions).
+- [X] T007 [P] Create `backend/internal/version/version.go` exporting `var Version = "dev"` and `var Commit = "unknown"`. These are intentionally `var` (not `const`) so `-ldflags -X` can overwrite them. Add a passing unit test `backend/internal/version/version_test.go` that asserts both variables are non-empty (defensive against future `const` regressions).
 
-- [ ] T008 [P] Create `backend/.air.toml` configuring live reload: build cmd `go build -o ./tmp/ring ./cmd/ring`, run cmd `./tmp/ring serve`, watch `**/*.go`, exclude `internal/web/dist/`, `tmp/`, `test/integration/`.
+- [X] T008 [P] Create `backend/.air.toml` configuring live reload: build cmd `go build -o ./tmp/ring ./cmd/ring`, run cmd `./tmp/ring serve`, watch `**/*.go`, exclude `internal/web/dist/`, `tmp/`, `test/integration/`.
 
-- [ ] T009 [P] Create `backend/.golangci.yml` enabling per `research.md` R14: `errcheck`, `govet`, `staticcheck`, `unused`, `gofumpt`, `gosec`, `revive`, `bodyclose`, `errorlint`, `gocritic`, `gosimple`, `ineffassign`, `prealloc`, `unparam`. Disable: `gocyclo`, `nestif`. Set `run.timeout: 5m`.
+- [X] T009 [P] Create `backend/.golangci.yml` enabling per `research.md` R14: `errcheck`, `govet`, `staticcheck`, `unused`, `gofumpt`, `gosec`, `revive`, `bodyclose`, `errorlint`, `gocritic`, `gosimple`, `ineffassign`, `prealloc`, `unparam`. Disable: `gocyclo`, `nestif`. Set `run.timeout: 5m`.
 
-- [ ] T010 [P] Configure ESLint flat config at `frontend/eslint.config.js` with `eslint-plugin-svelte`, `@typescript-eslint`, and `eslint-config-prettier`. Add `frontend/.prettierrc` per `research.md` R15: `{ "useTabs": false, "tabWidth": 2, "singleQuote": true, "trailingComma": "all", "printWidth": 100, "plugins": ["prettier-plugin-svelte"] }`. Add `lint` and `test` scripts to `frontend/package.json`.
+- [X] T010 [P] Configure ESLint flat config at `frontend/eslint.config.js` with `eslint-plugin-svelte`, `@typescript-eslint`, and `eslint-config-prettier`. Add `frontend/.prettierrc` per `research.md` R15: `{ "useTabs": false, "tabWidth": 2, "singleQuote": true, "trailingComma": "all", "printWidth": 100, "plugins": ["prettier-plugin-svelte"] }`. Add `lint` and `test` scripts to `frontend/package.json`.
 
-- [ ] T011 [P] Configure `frontend/svelte.config.js` to use `@sveltejs/adapter-static` with `pages: 'build'`, `assets: 'build'`, `fallback: undefined`, `strict: true`. Confirm `frontend/src/routes/+layout.ts` exports `export const prerender = true;`.
+- [X] T011 [P] Configure `frontend/svelte.config.js` to use `@sveltejs/adapter-static` with `pages: 'build'`, `assets: 'build'`, `fallback: undefined`, `strict: true`. Confirm `frontend/src/routes/+layout.ts` exports `export const prerender = true;`.
 
-- [ ] T012 [P] Configure `frontend/vite.config.ts` to define `import.meta.env.VITE_RING_VERSION` and `VITE_RING_COMMIT` from `process.env.RING_VERSION` / `process.env.RING_COMMIT` (fall back to `'dev'` / `'unknown'`). Add `lib/version.ts` exporting `VERSION` and `COMMIT` constants read from `import.meta.env`.
+- [X] T012 [P] Configure `frontend/vite.config.ts` to define `import.meta.env.VITE_RING_VERSION` and `VITE_RING_COMMIT` from `process.env.RING_VERSION` / `process.env.RING_COMMIT` (fall back to `'dev'` / `'unknown'`). Add `lib/version.ts` exporting `VERSION` and `COMMIT` constants read from `import.meta.env`.
 
-- [ ] T013 Add `lint-staged` config to `frontend/package.json` (or `frontend/.lintstagedrc.json`) that runs ESLint on staged `.ts`/`.svelte` and Prettier `--write` on staged `.ts`/`.svelte`/`.json`/`.md`. The repo-root `.husky/pre-commit` already calls `pnpm exec lint-staged` — this provides the config it expects.
+- [X] T013 Add `lint-staged` config to `frontend/package.json` (or `frontend/.lintstagedrc.json`) that runs ESLint on staged `.ts`/`.svelte` and Prettier `--write` on staged `.ts`/`.svelte`/`.json`/`.md`. The repo-root `.husky/pre-commit` already calls `pnpm exec lint-staged` — this provides the config it expects.
 
 **Checkpoint**: All linters, formatters, and version-injection wiring are configured. `make lint` runs to completion (with no actual code yet, lint is a no-op success). Pre-commit hooks fire correctly on staged changes.
 

@@ -1,10 +1,15 @@
 # Ring — developer-facing entry points. Constitution §D (Makefile Contract).
 # Every recurring command lives here so the surface is uniform and discoverable.
 .DEFAULT_GOAL := help
-.PHONY: help dev up down build image test lint migrate seed logs clean trust install fmt vapid-gen
+.PHONY: help dev up down build image test lint migrate seed logs clean trust install fmt vapid-gen version
 
 RING_FQDN ?= ring.localtest.me
 DATABASE_URL ?= postgres://ring:ring@localhost:5432/ring?sslmode=disable
+
+# Build-time version stamping (T005/T006). `?=` so callers can override.
+RING_VERSION ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo dev)
+RING_COMMIT  ?= $(shell git rev-parse HEAD 2>/dev/null || echo unknown)
+RING_LDFLAGS := -s -w -X github.com/zuptalo/ring-e2ee-messenger/backend/internal/version.Version=$(RING_VERSION) -X github.com/zuptalo/ring-e2ee-messenger/backend/internal/version.Commit=$(RING_COMMIT)
 
 help: ## Show this help
 	@awk 'BEGIN {FS = ":.*##"} /^[a-zA-Z_-]+:.*##/ {printf "  \033[36m%-14s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
@@ -29,11 +34,15 @@ down: ## docker compose down
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 
 build: ## Build SvelteKit + Go binary on the host (no Docker)
-	@if [ -d frontend ]; then cd frontend && pnpm install --frozen-lockfile && pnpm run build; fi
-	@if [ -d backend ]; then cd backend && CGO_ENABLED=0 go build -trimpath -ldflags="-s -w" -o ../bin/ring ./cmd/ring; fi
+	@if [ -d frontend ]; then cd frontend && pnpm install --frozen-lockfile && RING_VERSION=$(RING_VERSION) RING_COMMIT=$(RING_COMMIT) pnpm run build; fi
+	@if [ -d backend ]; then cd backend && CGO_ENABLED=0 go build -trimpath -ldflags="$(RING_LDFLAGS)" -o ../bin/ring ./cmd/ring; fi
 
 image: ## Build single production Docker image (ring:latest)
-	docker build -t ring:latest .
+	docker build --build-arg RING_VERSION=$(RING_VERSION) --build-arg RING_COMMIT=$(RING_COMMIT) -t ring:latest -t ring:$(RING_VERSION) .
+
+version: ## Show resolved RING_VERSION/RING_COMMIT (debugging build stamps)
+	@echo "RING_VERSION=$(RING_VERSION)"
+	@echo "RING_COMMIT=$(RING_COMMIT)"
 
 test: ## Run all tests (Go + frontend)
 	@if [ -f backend/go.mod ]; then cd backend && go test ./...; fi
