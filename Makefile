@@ -78,8 +78,20 @@ clean: ## Remove build artifacts (does not touch volumes)
 	rm -rf bin frontend/build frontend/.svelte-kit
 
 trust: ## One-time: install Caddy's internal-CA root into the host trust store
-	RING_FQDN=$(RING_FQDN) docker compose up -d proxy
-	docker compose exec proxy caddy trust
+	@RING_FQDN=$(RING_FQDN) docker compose up -d proxy
+	@echo "Generating Caddy internal CA inside the proxy container..."
+	@docker compose exec -T proxy caddy trust >/dev/null 2>&1 || true
+	@docker compose cp proxy:/data/caddy/pki/authorities/local/root.crt /tmp/ring-caddy-root.crt
+	@if [ "$$(uname)" = "Darwin" ]; then \
+		echo "Installing Caddy root into the macOS System Keychain — you'll be prompted for your sudo password..."; \
+		sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain /tmp/ring-caddy-root.crt; \
+	else \
+		echo "Installing Caddy root into /usr/local/share/ca-certificates — you'll be prompted for your sudo password..."; \
+		sudo cp /tmp/ring-caddy-root.crt /usr/local/share/ca-certificates/ring-caddy-root.crt; \
+		sudo update-ca-certificates; \
+	fi
+	@rm -f /tmp/ring-caddy-root.crt
+	@echo "✓ Caddy internal CA trusted on host. Restart your browser to pick up the change."
 
 vapid-gen: ## Generate a VAPID keypair for Web Push (writes to stdout)
 	@if [ ! -f backend/go.mod ]; then echo "vapid-gen needs the backend (Feature 005+)"; exit 1; fi
