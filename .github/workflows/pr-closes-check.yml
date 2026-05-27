@@ -1,0 +1,97 @@
+name: PR closes-issue check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+
+jobs:
+  check-closes-keyword:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require closing keyword in PR body
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const body = (pr.body || '').trim();
+
+            // Escape hatch: PR body starts with `[no-close]:` on its own first line.
+            const firstLine = body.split(/\r?\n/, 1)[0] || '';
+            if (/^\[no-close\]:/i.test(firstLine)) {
+              core.info(`PR opted out of closes-check via [no-close]: ${firstLine}`);
+              return;
+            }
+
+            // Match closing keywords + #N references. Accepts:
+            //   Closes #42 / closed #42 / Fix #42 / fixes #42 / Resolves #42 ...
+            //   Closes owner/repo#42 (cross-repo short form)
+            //   Closes https://github.com/owner/repo/issues/42 (URL form)
+            const keyword = '(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?)';
+            const target =
+              '(?:#\\d+|[\\w.-]+\\/[\\w.-]+#\\d+|https?:\\/\\/github\\.com\\/[\\w.-]+\\/[\\w.-]+\\/issues\\/\\d+)';
+            const re = new RegExp(`\\b${keyword}\\s+${target}\\b`, 'gi');
+            const matches = body.match(re) || [];
+
+            if (matches.length === 0) {
+              core.setFailed(
+                'PR body must contain at least one closing keyword referencing an issue, ' +
+                'e.g. "Closes #42". Closing keywords in commit messages are not sufficient ' +
+                '(rebase-merge strips them). See CONTRIBUTING.md > "Auto-closing issues". ' +
+                'If this PR closes no issues, prefix the body with `[no-close]: <reason>`.'
+              );
+              return;
+            }
+
+            // Extract #N numbers and verify each issue exists and is open in this repo.
+            const localNums = new Set();
+            for (const m of matches) {
+              const local = m.match(/(?:^|[^/\w])#(\d+)\b/);
+              if (local) {
+                localNums.add(Number(local[1]));
+                continue;
+              }
+              const cross = m.match(/([\w.-]+)\/([\w.-]+)#(\d+)/);
+              if (cross && cross[1] === context.repo.owner && cross[2] === context.repo.repo) {
+                localNums.add(Number(cross[3]));
+                continue;
+              }
+              const url = m.match(/github\.com\/([\w.-]+)\/([\w.-]+)\/issues\/(\d+)/);
+              if (url && url[1] === context.repo.owner && url[2] === context.repo.repo) {
+                localNums.add(Number(url[3]));
+              }
+            }
+
+            const problems = [];
+            for (const n of localNums) {
+              try {
+                const { data } = await github.rest.issues.get({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: n,
+                });
+                if (data.pull_request) {
+                  problems.push(`#${n} is a pull request, not an issue`);
+                } else if (data.state !== 'open') {
+                  problems.push(`#${n} is already ${data.state}`);
+                }
+              } catch (e) {
+                problems.push(`#${n} not found (${e.status || 'error'})`);
+              }
+            }
+
+            if (problems.length > 0) {
+              core.setFailed(
+                'Closing references in PR body are invalid:\n  - ' + problems.join('\n  - '),
+              );
+              return;
+            }
+
+            core.info(
+              `OK — PR closes ${localNums.size} open issue(s): ` +
+                [...localNums].map((n) => `#${n}`).join(', '),
+            );

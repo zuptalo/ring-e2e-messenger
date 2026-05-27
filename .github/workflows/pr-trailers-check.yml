@@ -1,0 +1,86 @@
+name: PR trailers check
+
+on:
+  pull_request:
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  check-authorship-trailers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate Authorship + AI-Tool trailers in PR body
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const body = (context.payload.pull_request.body || '').replace(/\r\n/g, '\n');
+            const lines = body.split('\n');
+
+            const authorshipRe = /^Authorship: (AI Generated|AI Assisted|Human)$/;
+            const aitoolRe = /^AI-Tool: (.+)$/;
+            const aitoolValueRe =
+              /^(Claude|Gemini|Cursor|Other|none)(, *(Claude|Gemini|Cursor|Other))*$/;
+
+            let authorship = null;
+            let aitool = null;
+            let authorshipLineIdx = -1;
+            let aitoolLineIdx = -1;
+
+            for (let i = 0; i < lines.length; i++) {
+              const a = lines[i].match(authorshipRe);
+              if (a) { authorship = a[1]; authorshipLineIdx = i; }
+              const t = lines[i].match(aitoolRe);
+              if (t) { aitool = t[1]; aitoolLineIdx = i; }
+            }
+
+            const problems = [];
+            if (authorship === null) {
+              problems.push(
+                "missing or malformed 'Authorship:' trailer — must be on its own line, " +
+                "one of 'AI Generated' | 'AI Assisted' | 'Human'",
+              );
+            }
+            if (aitool === null) {
+              problems.push("missing 'AI-Tool:' trailer");
+            } else if (!aitoolValueRe.test(aitool)) {
+              problems.push(
+                `invalid 'AI-Tool: ${aitool}' — allowed: Claude, Gemini, Cursor, Other ` +
+                "(comma-separated) — or 'none' alone",
+              );
+            }
+            if (authorship === 'Human' && aitool !== 'none') {
+              problems.push(
+                `'Authorship: Human' requires 'AI-Tool: none' (got '${aitool}')`,
+              );
+            }
+
+            // Trailers must form the last paragraph of the body (no content after them
+            // except whitespace) — otherwise git interpret-trailers won't recognize them
+            // as trailers on the squash commit.
+            if (authorshipLineIdx >= 0 && aitoolLineIdx >= 0) {
+              const lastTrailerIdx = Math.max(authorshipLineIdx, aitoolLineIdx);
+              const tail = lines.slice(lastTrailerIdx + 1).join('\n').trim();
+              if (tail.length > 0) {
+                problems.push(
+                  'Authorship/AI-Tool trailers must be the LAST lines of the PR body ' +
+                  '(only whitespace allowed after them); found content after the trailers.',
+                );
+              }
+            }
+
+            if (problems.length > 0) {
+              core.setFailed(
+                'PR body must include constitution §B trailers that will land on the ' +
+                'squash commit:\n  - ' +
+                problems.join('\n  - ') +
+                '\n\nSee CONTRIBUTING.md > "Authorship trailers on squash commits".',
+              );
+              return;
+            }
+
+            core.info(
+              `OK — trailers present: Authorship: ${authorship} / AI-Tool: ${aitool}`,
+            );
