@@ -1,7 +1,7 @@
 # Ring — developer-facing entry points. Constitution §D (Makefile Contract).
 # Every recurring command lives here so the surface is uniform and discoverable.
 .DEFAULT_GOAL := help
-.PHONY: help dev up down build image test lint migrate seed logs clean trust install fmt vapid-gen version
+.PHONY: help dev up down build image test lint migrate seed logs clean trust install fmt vapid-gen version frontend-embed
 
 RING_FQDN ?= ring.localtest.me
 DATABASE_URL ?= postgres://ring:ring@localhost:5432/ring?sslmode=disable
@@ -33,8 +33,17 @@ up: ## docker compose up -d (full stack, prebuilt image)
 down: ## docker compose down
 	docker compose -f docker-compose.yml -f docker-compose.prod.yml down
 
-build: ## Build SvelteKit + Go binary on the host (no Docker)
-	@if [ -d frontend ]; then cd frontend && pnpm install --frozen-lockfile && RING_VERSION=$(RING_VERSION) RING_COMMIT=$(RING_COMMIT) pnpm run build; fi
+frontend-embed: ## Build the frontend and stage it into backend/internal/web/dist for go:embed
+	@if [ -d frontend ]; then \
+		cd frontend && pnpm install --frozen-lockfile && \
+		RING_VERSION=$(RING_VERSION) RING_COMMIT=$(RING_COMMIT) pnpm run build && \
+		rm -rf ../backend/internal/web/dist && \
+		mkdir -p ../backend/internal/web/dist && \
+		cp -R build/. ../backend/internal/web/dist/ && \
+		touch ../backend/internal/web/dist/.gitkeep; \
+	fi
+
+build: frontend-embed ## Build SvelteKit + Go binary on the host (no Docker)
 	@if [ -d backend ]; then cd backend && CGO_ENABLED=0 go build -trimpath -ldflags="$(RING_LDFLAGS)" -o ../bin/ring ./cmd/ring; fi
 
 image: ## Build single production Docker image (ring:latest)
