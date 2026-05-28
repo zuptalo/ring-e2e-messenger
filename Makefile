@@ -78,7 +78,9 @@ clean: ## Remove build artifacts (does not touch volumes)
 	rm -rf bin frontend/build frontend/.svelte-kit
 
 trust: ## One-time: install Caddy's internal-CA root into the host trust store
-	@RING_FQDN=$(RING_FQDN) docker compose up -d proxy
+	@# --no-recreate so running `make trust` after `make up` does NOT tear down
+	@# the prod proxy and recreate it with the dev upstream (which would 502).
+	@RING_FQDN=$(RING_FQDN) docker compose up -d --no-recreate proxy
 	@echo "Generating Caddy internal CA inside the proxy container..."
 	@docker compose exec -T proxy caddy trust >/dev/null 2>&1 || true
 	@docker compose cp proxy:/data/caddy/pki/authorities/local/root.crt /tmp/ring-caddy-root.crt

@@ -18,6 +18,14 @@ cp .env.example .env
 
 No edits to `.env` are required for local dev — the defaults target `ring.localtest.me` which resolves to `127.0.0.1` via the public `localtest.me` service. Edit `RING_FQDN` only if you want a custom local hostname (in which case make it resolve to `127.0.0.1` yourself).
 
+> **If `ring.localtest.me` does not resolve** (`curl: (6) Could not resolve host`): your network's DNS server is likely stripping the `127.0.0.1` answer as DNS-rebinding protection — common on home routers, Pi-hole, and corporate resolvers. Bypass DNS with a hosts entry:
+>
+> ```bash
+> echo "127.0.0.1 ring.localtest.me" | sudo tee -a /etc/hosts
+> ```
+>
+> This is the most reliable option regardless of network; the `localtest.me` public service is a convenience, not a requirement.
+
 ---
 
 ## 2. One-time TLS trust step (1 minute, first machine only)
