@@ -80,10 +80,10 @@ This document records every research decision made to resolve the Technical Cont
 ## R7. CI provider and matrix
 
 - **Decision**: GitHub Actions. Single workflow at `.github/workflows/ci.yml` with three jobs:
-  - `backend` matrix (Go 1.26, Go 1.25) running `golangci-lint`, `govulncheck`, `go test ./...` (excluding the `integration` build tag) — fast.
+  - `backend` (Go 1.26) running `golangci-lint`, `govulncheck`, `go test ./...` (excluding the `integration` build tag) — fast.
   - `frontend` running pnpm install, `pnpm exec eslint`, `pnpm exec prettier --check`, `pnpm exec svelte-check` + `tsc --noEmit`, `pnpm test`.
   - `integration` running `go test -tags=integration ./test/integration/...` on `ubuntu-latest` (which has Docker available for testcontainers).
-- **Rationale**: The repo lives on GitHub (`zuptalo/ring-e2ee-messenger` per memory); Actions is the lowest-friction provider with built-in Docker support for testcontainers. The matrix on Go satisfies the constitution's "two most recent releases" rule. Splitting integration into its own job keeps the fast feedback loop fast on lint/unit failures.
+- **Rationale**: The repo lives on GitHub (`zuptalo/ring-e2ee-messenger` per memory); Actions is the lowest-friction provider with built-in Docker support for testcontainers. The `backend` job tests the `go.mod`-pinned release per the constitution's backend-language rule. Splitting integration into its own job keeps the fast feedback loop fast on lint/unit failures.
 - **Alternatives considered**:
   - GitLab CI / CircleCI / Buildkite: rejected — would require provisioning a runner outside GitHub for no current benefit.
   - Single job with all gates serialized: rejected — slower feedback, harder to read failure logs.

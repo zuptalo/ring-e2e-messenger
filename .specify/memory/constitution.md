@@ -1,49 +1,33 @@
 <!--
 SYNC IMPACT REPORT
 ==================
-Version change: 1.0.0 → 1.1.0
-Bump rationale: MINOR — additive amendment. New section
-  "Branching, Commits, Pre-Commit Enforcement, and Dev Environment"
-  introduced; the existing "Platform Constraints" section is expanded
-  to cover backend language, HTTP stack, database, distribution, and
-  self-host story. No principle removed or redefined.
+Version change: 1.1.0 → 1.2.0
+Bump rationale: MINOR — material change to an existing rule. The
+  backend-language CI requirement is relaxed: "CI MUST test against the
+  two most recent major releases" becomes "CI MUST test against the
+  release pinned in go.mod; testing additional releases is OPTIONAL."
+  Rationale: with go.mod pinning the toolchain and GOTOOLCHAIN=auto, the
+  older-release matrix entry auto-upgrades and never exercises the older
+  runtime against project code — it only verifies upstream's toolchain
+  fetch. For a single-maintainer service the cost outweighs the signal.
+  No principle removed; previously-compliant code stays compliant.
 
 Modified sections:
-  - "Platform Constraints (Web & Mobile)" → "Platform Constraints
-    (Web, Mobile, Backend, Distribution)" — five new bullets appended
-    covering Go backend, net/http stack, PostgreSQL + testcontainers,
-    single Docker image distribution, and `docker compose up -d`
-    self-host story.
-  - "Development Workflow & Quality Gates" — gate 3 ("Pre-merge gate")
-    updated to cross-reference the commit-trailer and branch-name rules
-    in the new section.
+  - "Platform Constraints (Web, Mobile, Backend, Distribution)" —
+    backend-language bullet's CI clause relaxed (see above).
 
-Added sections:
-  - "Branching, Commits, Pre-Commit Enforcement, and Dev Environment"
-    (placed between "Development Workflow & Quality Gates" and
-    "Governance"), with sub-sections A–F covering branch policy,
-    commit authorship trailers, pre-commit gates for both stacks,
-    Makefile contract, local dev environment + FQDN, and ROADMAP.md
-    as living artifact.
+Added sections: none.
 
 Removed sections: none.
 
 Modified principles: none (all five core principles unchanged).
 
 Templates requiring updates:
-  - ✅ .specify/templates/plan-template.md — Constitution Check
-       references remain generic; new section is enforced at the
-       Plan and Pre-merge gates already specified.
-  - ✅ .specify/templates/spec-template.md — no constitution-coupled
-       sections; compatible.
-  - ✅ .specify/templates/tasks-template.md — task categories already
-       support tests, observability, and polish phases; compatible.
-  - ✅ .specify/templates/checklist-template.md — feature-scoped
-       template with no constitution coupling; compatible.
-  - ⚠ CLAUDE.md — runtime guidance stub; will be expanded once
-       Feature 001 plan is produced. Not blocking.
+  - ✅ no template references the multi-release CI matrix; all compatible.
 
-Follow-up TODOs: none.
+Follow-up TODOs:
+  - .github/workflows/ci.yml backend matrix collapsed to a single
+    go-version ('1.26') in the same change.
 -->
 
 # Ring Constitution
@@ -153,7 +137,7 @@ distributed as a self-hostable container image, the following constraints apply:
   that behavior is "show an error" — undefined offline behavior is a defect.
 - **Backend language**: All backend code MUST be written in Go using the
   latest stable supported release (currently Go 1.26). CI MUST test against
-  the two most recent major releases per Go's support policy.
+  the release pinned in `go.mod`. Testing additional releases is OPTIONAL.
 - **HTTP stack**: Backend MUST default to the `net/http` standard library
   (Go 1.22+ ServeMux pattern routing). Adopting a third-party HTTP framework
   requires a constitution amendment and a justified Complexity Tracking entry
@@ -307,4 +291,4 @@ amendments where they are not.
 `CLAUDE.md` and in the active feature's `plan.md`. Those documents MUST defer
 to this constitution on any conflict.
 
-**Version**: 1.1.0 | **Ratified**: 2026-05-26 | **Last Amended**: 2026-05-27
+**Version**: 1.2.0 | **Ratified**: 2026-05-26 | **Last Amended**: 2026-05-28

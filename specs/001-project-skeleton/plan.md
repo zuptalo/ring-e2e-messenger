@@ -10,7 +10,7 @@ Ship the smallest end-to-end vertical slice that proves the full Ring stack comp
 
 ## Technical Context
 
-**Language/Version**: Backend Go 1.26 (CI matrix: 1.26 + 1.25 per constitution's two-most-recent rule). Frontend TypeScript 5 on Node 22 LTS (Vite/SvelteKit toolchain only; runtime is the Go binary).
+**Language/Version**: Backend Go 1.26 (CI tests the `go.mod`-pinned release per the constitution's backend-language rule). Frontend TypeScript 5 on Node 22 LTS (Vite/SvelteKit toolchain only; runtime is the Go binary).
 
 **Primary Dependencies**:
 - Backend: `net/http` (stdlib ServeMux, Go 1.22+ pattern routing), `embed`, `log/slog` (stdlib JSON handler), `github.com/jackc/pgx/v5/pgxpool` (Postgres driver + connection pool for `/healthz` ping and post-boot reconnect), `github.com/pressly/goose/v3` (migrations CLI — directory present, no migrations in this feature), `github.com/testcontainers/testcontainers-go` + `testcontainers-go/modules/postgres` (integration test).
@@ -59,7 +59,7 @@ Ship the smallest end-to-end vertical slice that proves the full Ring stack comp
 | Mobile compatibility window | N/A (no mobile client yet) | Feature 002 introduces the PWA shell. |
 | No silent platform divergence | ✅ | Only one client (the SvelteKit shell); no divergence possible. |
 | Offline tolerance | ✅ | The web shell at `/` requires zero network after initial load; `/api/*` and `/ws` degrade with a generic "service degraded" envelope when DB is down (FR-012). |
-| Backend language: Go (latest stable, two-recent CI matrix) | ✅ | `go.mod` pins `go 1.26`; CI matrix runs against 1.26 and 1.25. |
+| Backend language: Go (latest stable, CI tests pinned release) | ✅ | `go.mod` pins `go 1.26`; CI tests against 1.26. |
 | HTTP stack: `net/http` stdlib (ServeMux pattern) | ✅ | Router is a single `*http.ServeMux` built in `internal/server`. No third-party framework. |
 | Database: PostgreSQL latest stable (17), real DB in tests | ✅ | `postgres:17` in `docker-compose.yml`; `testcontainers-go/modules/postgres` in the integration test. |
 | Distribution: single self-contained Docker image with `embed.FS` | ✅ | Existing `Dockerfile` is the multi-stage build; backend `internal/web` embeds `dist/` via `//go:embed`. |
@@ -151,7 +151,7 @@ frontend/
 
 .github/
 └── workflows/
-    └── ci.yml                   # Backend matrix (Go 1.26+1.25): lint, vuln, test.
+    └── ci.yml                   # Backend (Go 1.26): lint, vuln, test.
                                  # Frontend: lint, prettier --check, tsc --noEmit, vitest.
                                  # Integration: Docker-in-Docker for testcontainers.
 

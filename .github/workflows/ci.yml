@@ -38,17 +38,10 @@ jobs:
           echo "frontend=$([ -f frontend/package.json ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
 
   backend:
-    name: backend (go ${{ matrix.go-version }})
+    name: backend
     needs: detect
     if: needs.detect.outputs.backend == 'true'
     runs-on: ubuntu-latest
-    strategy:
-      fail-fast: false
-      matrix:
-        # Constitution "two most recent Go releases". go.mod requires 1.26, so
-        # the 1.25 entry exercises the toolchain auto-upgrade path (GOTOOLCHAIN
-        # defaults to auto) rather than a true 1.25 build.
-        go-version: ['1.26', '1.25']
     defaults:
       run:
         working-directory: backend
@@ -57,7 +50,7 @@ jobs:
 
       - uses: actions/setup-go@v5
         with:
-          go-version: ${{ matrix.go-version }}
+          go-version: '1.26'
           cache-dependency-path: backend/go.sum
 
       - name: golangci-lint
