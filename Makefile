@@ -1,7 +1,7 @@
 # Ring — developer-facing entry points. Constitution §D (Makefile Contract).
 # Every recurring command lives here so the surface is uniform and discoverable.
 .DEFAULT_GOAL := help
-.PHONY: help dev up down build image test lint migrate seed logs clean trust install fmt vapid-gen version frontend-embed
+.PHONY: help dev dev-pwa up down build image test lint migrate seed logs clean trust install fmt vapid-gen version frontend-embed
 
 RING_FQDN ?= ring.localtest.me
 DATABASE_URL ?= postgres://ring:ring@localhost:5432/ring?sslmode=disable
@@ -26,6 +26,14 @@ dev: ## Start db + proxy in compose; run Go (air) and SvelteKit (vite) on host
 	@echo "  (terminal 1) cd backend && air -c .air.toml      # Go + live reload"
 	@echo "  (terminal 2) cd frontend && pnpm run dev         # Vite HMR"
 	@echo "Then open https://$(RING_FQDN)/"
+
+dev-pwa: ## Build the frontend and preview it with the PWA active (SW+manifest; no HMR)
+	@if [ ! -f frontend/package.json ]; then echo "dev-pwa needs the frontend"; exit 1; fi
+	cd frontend && RING_VERSION=$(RING_VERSION) RING_COMMIT=$(RING_COMMIT) pnpm run build
+	@echo ""
+	@echo "PWA preview (service worker + manifest active) → http://localhost:4173"
+	@echo "localhost is a secure context, so the SW registers. Re-run after changes (preview has no hot reload)."
+	cd frontend && pnpm run preview
 
 up: ## docker compose up -d (full stack, prebuilt image)
 	RING_FQDN=$(RING_FQDN) docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
