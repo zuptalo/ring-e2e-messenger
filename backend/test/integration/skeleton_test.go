@@ -63,9 +63,13 @@ func TestSkeletonEndToEnd(t *testing.T) {
 	// 2. Build the production binary with marker ldflags.
 	binaryPath := buildBinary(t)
 
-	// 3. Start the binary against a random localhost port.
+	// 3. Start the binary against a random port.
 	goPort := pickFreePort(t)
-	listenAddr := fmt.Sprintf("127.0.0.1:%d", goPort)
+	// Bind all interfaces, not just loopback: on a Linux Docker daemon the
+	// Caddy container reaches this host binary via host.docker.internal ->
+	// host-gateway (e.g. 172.17.0.1), which a 127.0.0.1-only listener refuses
+	// with a 502. The direct-port client below still dials loopback.
+	listenAddr := fmt.Sprintf("0.0.0.0:%d", goPort)
 
 	cmd := exec.CommandContext(ctx, binaryPath, "serve")
 	cmd.Env = append(
@@ -86,7 +90,7 @@ func TestSkeletonEndToEnd(t *testing.T) {
 		}
 	})
 
-	goBase := "http://" + listenAddr
+	goBase := fmt.Sprintf("http://127.0.0.1:%d", goPort)
 	if !waitFor(2*time.Minute, func() bool {
 		resp, err := http.Get(goBase + "/healthz")
 		if err != nil {
@@ -256,6 +260,37 @@ ring.localtest.me {
 		}
 		if !strings.Contains(body, `"error":"not_found"`) {
 			t.Errorf(`body: got %q, want to contain "error":"not_found"`, body)
+		}
+	})
+
+	// SC-005: the running binary and the embedded frontend must originate from
+	// one build. The binary advertises its build identity via the
+	// `Server: ring/<version>+<short-sha>` header (set in the request-logger
+	// middleware); the same Version/Commit are stamped into the embedded HTML
+	// at build time. Assert the header's identity agrees with the HTML so a
+	// mismatched frontend/backend pairing can never ship undetected.
+	t.Run("Server header build identity matches embedded HTML (SC-005)", func(t *testing.T) {
+		body, _, hdr := mustGET(t, http.DefaultClient, goBase+"/")
+		serverHdr := hdr.Get("Server")
+		rest, ok := strings.CutPrefix(serverHdr, "ring/")
+		if !ok {
+			t.Fatalf("Server header %q missing %q prefix", serverHdr, "ring/")
+		}
+		ver, shortCommit, ok := strings.Cut(rest, "+")
+		if !ok {
+			t.Fatalf("Server header %q is not <version>+<short-sha>", serverHdr)
+		}
+		if ver != testVersion {
+			t.Errorf("Server header version: got %q, want %q", ver, testVersion)
+		}
+		if !strings.HasPrefix(testCommit, shortCommit) {
+			t.Errorf("Server header commit %q is not a prefix of build commit %q", shortCommit, testCommit)
+		}
+		if !strings.Contains(body, ver) {
+			t.Errorf("embedded HTML missing Server-header version %q", ver)
+		}
+		if !strings.Contains(body, testCommit) {
+			t.Errorf("embedded HTML missing build commit %q", testCommit)
 		}
 	})
 }

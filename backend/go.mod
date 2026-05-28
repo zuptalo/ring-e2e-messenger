@@ -2,6 +2,8 @@ module github.com/zuptalo/ring-e2ee-messenger/backend
 
 go 1.26
 
+toolchain go1.26.3
+
 require (
 	github.com/jackc/pgx/v5 v5.5.4
 	github.com/moby/moby/api v1.54.1
