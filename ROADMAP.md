@@ -16,7 +16,7 @@ feed `/speckit-specify` when starting that spec.
 | ID  | Title                              | Specify | Clarify | Plan | Tasks | Analyze | T→I | Implement |
 | --- | ---------------------------------- | :-----: | :-----: | :--: | :---: | :-----: | :-: | :-------: |
 | 001 | repo-skeleton-end-to-end-hello     |   ✅    |   ✅    |  ✅  |  ✅   |   ✅    | ✅  |    ✅     |
-| 002 | pwa-install-and-app-shell          |   ✅    |   ✅    |  ✅  |  ✅   |   ✅    | 🟡  |    ⬜     |
+| 002 | pwa-install-and-app-shell          |   ✅    |   ✅    |  ✅  |  ✅   |   ✅    | ✅  |    🟡     |
 | 003 | auth-and-identity-bootstrap        |   ⬜    |   ⬜    |  ⬜  |  ⬜   |   ⬜    | ⬜  |    ⬜     |
 | 004 | one-to-one-encrypted-messaging     |   ⬜    |   ⬜    |  ⬜  |  ⬜   |   ⬜    | ⬜  |    ⬜     |
 | 005 | web-push-notifications             |   ⬜    |   ⬜    |  ⬜  |  ⬜   |   ⬜    | ⬜  |    ⬜     |
