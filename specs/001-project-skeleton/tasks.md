@@ -136,11 +136,11 @@ Shared infrastructure (`Makefile`, `Dockerfile`, `Caddyfile`, `docker-compose*.y
 
 ### Tests for User Story 2 (Test-First) ⚠️
 
-- [ ] T029 [P] [US2] Add `frontend/tests/lint-meta.test.ts` (Vitest) that asserts the project's ESLint flat config can be loaded by `eslint` programmatically without errors — this guards against config-file regressions slipping past `pnpm exec eslint --print-config` in CI. Run; confirm it PASSES once T010 is done (sanity check, not a fail-first test).
+- [X] T029 [P] [US2] Add `frontend/tests/lint-meta.test.ts` (Vitest) that asserts the project's ESLint flat config can be loaded by `eslint` programmatically without errors — this guards against config-file regressions slipping past `pnpm exec eslint --print-config` in CI. Run; confirm it PASSES once T010 is done (sanity check, not a fail-first test).
 
 ### Implementation for User Story 2
 
-- [ ] T030 [US2] Create `.github/workflows/ci.yml` per `research.md` R7 with three jobs:
+- [X] T030 [US2] Create `.github/workflows/ci.yml` per `research.md` R7 with three jobs:
   - **`backend`** matrix on `go-version: ['1.26', '1.25']`, runs `golangci-lint run ./...`, `govulncheck ./...`, `go test ./...` (without the `integration` tag), all inside `backend/`. Cache `go mod` deps.
   - **`frontend`** runs `pnpm install --frozen-lockfile`, `pnpm exec eslint .`, `pnpm exec prettier --check .`, `pnpm exec svelte-check --tsconfig ./tsconfig.json`, `pnpm exec tsc --noEmit`, `pnpm test`. Cache pnpm store.
   - **`integration`** runs on `ubuntu-latest` (Docker daemon present), builds the frontend, copies the output into `backend/internal/web/dist/`, then runs `cd backend && go test -tags=integration ./test/integration/...`. Cache go mod deps.
