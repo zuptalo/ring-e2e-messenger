@@ -1,9 +1,9 @@
 name: CI
 
-# Per spec 001 research R7 / task T030. Three jobs gate every PR (and every
-# push to main): fast backend lint+unit, frontend lint+typecheck+unit, and a
-# slower testcontainers-backed integration job. The integration job proves the
-# embedded-frontend + Caddy-fronted-TLS slice end-to-end (FR-007).
+# Per spec 001 research R7 / task T030. Jobs gate every PR (and every push to
+# main): fast backend lint+unit, frontend lint+typecheck+unit, and a slower
+# testcontainers-backed integration job that proves the embedded-frontend +
+# Caddy-fronted-TLS slice end-to-end (FR-007).
 
 on:
   pull_request:
@@ -18,8 +18,29 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # The backend/ and frontend/ source trees arrive incrementally across specs,
+  # and a workflow-bootstrap branch (cut from main before that code lands) has
+  # neither. Mirror the pre-commit hook's "run a stack's gate only if that
+  # stack exists" rule so CI is correct at every stage of the project's
+  # evolution: detect which trees are present, then gate each job on it. Once
+  # both trees are committed (every normal branch), detection is always true
+  # and every job runs.
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.trees.outputs.backend }}
+      frontend: ${{ steps.trees.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: trees
+        run: |
+          echo "backend=$([ -f backend/go.mod ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "frontend=$([ -f frontend/package.json ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
   backend:
     name: backend (go ${{ matrix.go-version }})
+    needs: detect
+    if: needs.detect.outputs.backend == 'true'
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
@@ -53,6 +74,8 @@ jobs:
 
   frontend:
     name: frontend
+    needs: detect
+    if: needs.detect.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -95,6 +118,8 @@ jobs:
 
   integration:
     name: integration
+    needs: detect
+    if: needs.detect.outputs.backend == 'true' && needs.detect.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
