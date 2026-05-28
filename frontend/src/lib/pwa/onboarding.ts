@@ -103,3 +103,29 @@ export async function runFirstStandaloneOnboarding(pushCapable: boolean): Promis
     logEvent('notif.permission', 'skipped');
   }
 }
+
+// First-launch durable-storage request (T026, US3, SC-006). Asks the browser to
+// make storage persistent so the device doesn't evict the local message DB under
+// pressure. Attempted exactly once (guarded by persistRequested); the app
+// proceeds regardless of the outcome — persistence is best-effort. Feature-
+// detected: an absent Storage Manager records an 'unsupported' outcome.
+export async function requestPersistentStorage(): Promise<void> {
+  const state = loadOnboardingState();
+  if (state.persistRequested) return; // ask once only — never re-prompt
+
+  const sm = typeof navigator !== 'undefined' ? navigator.storage : undefined;
+  if (!sm || typeof sm.persist !== 'function') {
+    updateOnboardingState({ persistRequested: true, persistGranted: null });
+    logEvent('storage.persist', 'unsupported');
+    return;
+  }
+
+  try {
+    const granted = await sm.persist();
+    updateOnboardingState({ persistRequested: true, persistGranted: granted });
+    logEvent('storage.persist', granted ? 'granted' : 'denied');
+  } catch {
+    updateOnboardingState({ persistRequested: true, persistGranted: null });
+    logEvent('storage.persist', 'unsupported');
+  }
+}

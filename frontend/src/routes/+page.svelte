@@ -9,15 +9,21 @@
   import { onMount } from 'svelte';
   import { getCapabilityProfile } from '$lib/pwa/capability';
   import { installPromptEvent } from '$lib/pwa/install';
-  import { runFirstStandaloneOnboarding } from '$lib/pwa/onboarding';
+  import { runFirstStandaloneOnboarding, requestPersistentStorage } from '$lib/pwa/onboarding';
   import { logEvent } from '$lib/pwa/log';
   import InstallCoach from '$lib/components/InstallCoach.svelte';
+  import IOSVersionGate from '$lib/components/IOSVersionGate.svelte';
   import { VERSION, COMMIT } from '$lib/version';
 
   let mounted = $state(false);
 
   // Recomputes when the captured install prompt arrives/clears (store dependency).
   const profile = $derived(mounted ? getCapabilityProfile($installPromptEvent !== null) : null);
+
+  // iOS <16.4 has no Web Push (US3) — warn, composed with the install coach.
+  const showVersionGate = $derived(
+    !!profile && profile.isIOSSafari && !profile.isStandalone && !profile.pushCapable,
+  );
 
   // 'standalone' | 'coach-native' | 'coach-ios' | 'unavailable' | null (pre-mount)
   const view = $derived.by(() => {
@@ -30,6 +36,9 @@
 
   onMount(() => {
     mounted = true;
+    // First-launch durable storage request (US3); guarded to run once, app
+    // proceeds regardless of the outcome (SC-006).
+    requestPersistentStorage();
   });
 
   // Emit observability + run the post-install step exactly when the view settles.
@@ -43,6 +52,15 @@
       logEvent('install.unavailable', profile.platform);
     } else {
       logEvent('coach.shown', view === 'coach-native' ? 'native' : 'ios');
+    }
+  });
+
+  // The version gate is composed onto the coach view (US3); log it once shown.
+  let gateLogged = false;
+  $effect(() => {
+    if (showVersionGate && !gateLogged) {
+      gateLogged = true;
+      logEvent('versiongate.shown', 'ios');
     }
   });
 </script>
@@ -65,6 +83,9 @@
 {:else if view === 'coach-native'}
   <InstallCoach variant="native" />
 {:else if view === 'coach-ios'}
+  {#if showVersionGate}
+    <IOSVersionGate />
+  {/if}
   <InstallCoach variant="ios" />
 {:else if view === 'unavailable'}
   <main data-testid="install-unavailable">

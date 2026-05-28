@@ -103,14 +103,14 @@ Web app, two trees from feature 001: `frontend/` (SvelteKit/Vite) and `backend/`
 
 ### Tests for User Story 3 ⚠️ (write first, observe failing)
 
-- [ ] T022 [US3] Extend `frontend/e2e/pwa.ios.spec.ts` (MUST FAIL) — iOS <16.4 UA renders `IOSVersionGate`; iOS ≥16.4 and non-iOS do not (SC-003).
-- [ ] T023 [P] [US3] Add a test (Vitest against `onboarding.ts` with a mocked `navigator.storage`, MUST FAIL) asserting `persist()` is attempted exactly once on first launch, recorded in Onboarding State, and the app proceeds when denied/unsupported (SC-006).
+- [X] T022 [US3] Extend `frontend/e2e/pwa.ios.spec.ts` (MUST FAIL) — iOS <16.4 UA renders `IOSVersionGate`; iOS ≥16.4 and non-iOS do not (SC-003).
+- [X] T023 [P] [US3] Add a test (Vitest against `onboarding.ts` with a mocked `navigator.storage`, MUST FAIL) asserting `persist()` is attempted exactly once on first launch, recorded in Onboarding State, and the app proceeds when denied/unsupported (SC-006).
 
 ### Implementation for User Story 3
 
-- [ ] T024 [P] [US3] Implement `frontend/src/lib/components/IOSVersionGate.svelte` — clear warning that push is unavailable on iOS <16.4 and will degrade to foreground polling.
-- [ ] T025 [US3] Render `IOSVersionGate` in the pre-install flow when `isIOSSafari && !pushCapable` (composed with `InstallCoach` in `frontend/src/routes/+page.svelte`). Emit `versiongate.shown`.
-- [ ] T026 [US3] Implement the first-launch `navigator.storage.persist()` call in `onboarding.ts` (guarded by `persistRequested`; feature-detect; record `persistGranted`; emit `storage.persist`).
+- [X] T024 [P] [US3] Implement `frontend/src/lib/components/IOSVersionGate.svelte` — clear warning that push is unavailable on iOS <16.4 and will degrade to foreground polling.
+- [X] T025 [US3] Render `IOSVersionGate` in the pre-install flow when `isIOSSafari && !pushCapable` (composed with `InstallCoach` in `frontend/src/routes/+page.svelte`). Emit `versiongate.shown`.
+- [X] T026 [US3] Implement the first-launch `navigator.storage.persist()` call in `onboarding.ts` (guarded by `persistRequested`; feature-detect; record `persistGranted`; emit `storage.persist`).
 
 **Checkpoint**: All three stories independently functional.
 

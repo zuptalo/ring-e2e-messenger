@@ -25,3 +25,29 @@ test.describe('Coached install-first onboarding — iOS (US2)', () => {
     await expect(page.getByTestId('install-coach')).toHaveCount(0);
   });
 });
+
+const UA_IOS_163 =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 16_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Mobile/15E148 Safari/604.1';
+const UA_IOS_164 =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 16_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.4 Mobile/15E148 Safari/604.1';
+
+test.describe('iOS push-capability version gate — iOS <16.4 (US3)', () => {
+  test.use({ userAgent: UA_IOS_163 });
+
+  test('iOS 16.3 shows the version gate alongside the install coach', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('install-coach')).toBeVisible();
+    await expect(page.getByTestId('ios-version-gate')).toBeVisible();
+    await expect(page.getByTestId('ios-version-gate')).toContainText(/16\.4/);
+  });
+});
+
+test.describe('iOS push-capability version gate — iOS ≥16.4 (US3)', () => {
+  test.use({ userAgent: UA_IOS_164 });
+
+  test('iOS 16.4 shows the coach but no version gate', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('install-coach')).toBeVisible();
+    await expect(page.getByTestId('ios-version-gate')).toHaveCount(0);
+  });
+});
