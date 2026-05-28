@@ -31,6 +31,9 @@ export default [
       'node_modules/',
       'package-lock.json',
       'pnpm-lock.yaml',
+      'test-results/',
+      'playwright-report/',
+      'dev-dist/',
     ],
   },
 ];

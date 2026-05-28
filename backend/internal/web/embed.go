@@ -9,8 +9,17 @@ package web
 import (
 	"embed"
 	"io/fs"
+	"mime"
 	"net/http"
 )
+
+func init() {
+	// Go's mime package has no entry for .webmanifest; without this the
+	// embedded file server would label the PWA manifest application/octet-stream,
+	// which some browsers reject. Register the correct type once at package load.
+	// This is the only backend change feature 002 makes (FR-013).
+	_ = mime.AddExtensionType(".webmanifest", "application/manifest+json")
+}
 
 // Files is the embedded SvelteKit production build, rooted at dist/. The
 // `all:` prefix ensures dotfiles (e.g. _app/) are included; without it

@@ -28,10 +28,10 @@ Web app, two trees from feature 001: `frontend/` (SvelteKit/Vite) and `backend/`
 
 **Purpose**: Add PWA + test tooling and the source icon.
 
-- [ ] T001 Add dev dependencies to `frontend/package.json` (`vite-plugin-pwa`, `@vite-pwa/assets-generator`, `@playwright/test`) via `pnpm add -D`, then `pnpm exec playwright install --with-deps chromium webkit`. Commit `frontend/pnpm-lock.yaml`.
-- [ ] T002 [P] Fetch the source icon to `frontend/static/icons/icon.svg` from `https://raw.githubusercontent.com/zuptalo/ring/refs/heads/main/frontend/public/icons/icon.svg` (single source for all icons + iOS splash).
-- [ ] T003 Create `frontend/pwa-assets.config.ts` (`@vite-pwa/assets-generator` preset: PWA icon set incl. maskable + Apple touch icon + iOS launch/splash image set from `static/icons/icon.svg`) and run `pnpm exec pwa-assets-generator` to emit the assets.
-- [ ] T004 [P] Create `frontend/playwright.config.ts` with two projects — `chromium` and `webkit` (the latter configured per-test with an iOS user agent) — and a `webServer` that runs `vite preview` against the production build. Add a `test:e2e` script to `frontend/package.json`.
+- [X] T001 Add dev dependencies to `frontend/package.json` (`vite-plugin-pwa`, `@vite-pwa/assets-generator`, `@playwright/test`) via `pnpm add -D`, then `pnpm exec playwright install --with-deps chromium webkit`. Commit `frontend/pnpm-lock.yaml`.
+- [X] T002 [P] Fetch the source icon to `frontend/static/icons/icon.svg` from `https://raw.githubusercontent.com/zuptalo/ring/refs/heads/main/frontend/public/icons/icon.svg` (single source for all icons + iOS splash).
+- [X] T003 Create `frontend/pwa-assets.config.ts` (`@vite-pwa/assets-generator` preset: PWA icon set incl. maskable + Apple touch icon + iOS launch/splash image set from `static/icons/icon.svg`) and run `pnpm exec pwa-assets-generator` to emit the assets.
+- [X] T004 [P] Create `frontend/playwright.config.ts` with two projects — `chromium` and `webkit` (the latter configured per-test with an iOS user agent) — and a `webServer` that runs `vite preview` against the production build. Add a `test:e2e` script to `frontend/package.json`.
 
 ---
 
@@ -41,10 +41,10 @@ Web app, two trees from feature 001: `frontend/` (SvelteKit/Vite) and `backend/`
 
 **⚠️ CRITICAL**: No user-story work begins until this phase is complete.
 
-- [ ] T005 [P] Write `frontend/src/lib/pwa/capability.test.ts` (Vitest, MUST FAIL first) covering the Device Capability Profile rules from `data-model.md` §1: iOS-Safari detection (incl. iPadOS desktop-mode `Macintosh`+`maxTouchPoints>1`), iOS version parse, the **16.4 push boundary**, `isStandalone`, and unparseable-version → `pushCapable=false` (fail-safe).
-- [ ] T006 Implement `frontend/src/lib/pwa/capability.ts` (`getCapabilityProfile()` returning the typed profile) until T005 passes.
-- [ ] T007 [P] Implement `frontend/src/lib/pwa/onboarding.ts` — Onboarding State persisted in `localStorage` per `data-model.md` §2 (`schemaVersion`, `firstLaunchAt`, `persistRequested`, `persistGranted`, `notificationPermission`), with load/save, defaults, `schemaVersion` migration-reset, and the never-re-prompt invariants. (Behavior of `persist()`/permission requests is wired in US2/US3.)
-- [ ] T008 [P] Implement `frontend/src/lib/pwa/log.ts` — minimal client structured logger emitting JSON records (`{event, outcome, ...}`) to the console for the onboarding events listed in `contracts/onboarding-ui.md` (console sink; backend ingestion deferred to feature 009).
+- [X] T005 [P] Write `frontend/src/lib/pwa/capability.test.ts` (Vitest, MUST FAIL first) covering the Device Capability Profile rules from `data-model.md` §1: iOS-Safari detection (incl. iPadOS desktop-mode `Macintosh`+`maxTouchPoints>1`), iOS version parse, the **16.4 push boundary**, `isStandalone`, and unparseable-version → `pushCapable=false` (fail-safe).
+- [X] T006 Implement `frontend/src/lib/pwa/capability.ts` (`getCapabilityProfile()` returning the typed profile) until T005 passes.
+- [X] T007 [P] Implement `frontend/src/lib/pwa/onboarding.ts` — Onboarding State persisted in `localStorage` per `data-model.md` §2 (`schemaVersion`, `firstLaunchAt`, `persistRequested`, `persistGranted`, `notificationPermission`), with load/save, defaults, `schemaVersion` migration-reset, and the never-re-prompt invariants. (Behavior of `persist()`/permission requests is wired in US2/US3.)
+- [X] T008 [P] Implement `frontend/src/lib/pwa/log.ts` — minimal client structured logger emitting JSON records (`{event, outcome, ...}`) to the console for the onboarding events listed in `contracts/onboarding-ui.md` (console sink; backend ingestion deferred to feature 009).
 
 **Checkpoint**: Shared modules ready; user stories can proceed.
 
@@ -58,16 +58,16 @@ Web app, two trees from feature 001: `frontend/` (SvelteKit/Vite) and `backend/`
 
 ### Tests for User Story 1 ⚠️ (write first, observe failing)
 
-- [ ] T009 [US1] Write `frontend/e2e/pwa.chromium.spec.ts` (Playwright Chromium, MUST FAIL) — `GET /manifest.webmanifest` → 200 and parses; after load + reload `navigator.serviceWorker.controller` is non-null; an offline reload still renders the shell (SC-002).
-- [ ] T010 [P] [US1] Write `backend/test/integration/pwa_assets_test.go` (build tag `integration`, MUST FAIL) reusing the 001 testcontainers harness to boot the real binary, asserting per `contracts/static-assets.md`: `/manifest.webmanifest` → 200 + `application/manifest+json` (body satisfies `contracts/manifest.schema.json`); `/sw.js` → 200 + a JavaScript content type; and the regression guard that `/healthz` → 200 and `/ws` → 426.
+- [X] T009 [US1] Write `frontend/e2e/pwa.chromium.spec.ts` (Playwright Chromium, MUST FAIL) — `GET /manifest.webmanifest` → 200 and parses; after load + reload `navigator.serviceWorker.controller` is non-null; an offline reload still renders the shell (SC-002).
+- [X] T010 [P] [US1] Write `backend/test/integration/pwa_assets_test.go` (build tag `integration`, MUST FAIL) reusing the 001 testcontainers harness to boot the real binary, asserting per `contracts/static-assets.md`: `/manifest.webmanifest` → 200 + `application/manifest+json` (body satisfies `contracts/manifest.schema.json`); `/sw.js` → 200 + a JavaScript content type; and the regression guard that `/healthz` → 200 and `/ws` → 426.
 
 ### Implementation for User Story 1
 
-- [ ] T011 [US1] Configure `VitePWA({...})` in `frontend/vite.config.ts` — `generateSW`, `registerType: 'autoUpdate'`, manifest fields satisfying `contracts/manifest.schema.json` (name/short_name "Ring", `display: standalone`, scope/start_url `/`, theme/background colors, generated icons incl. maskable), and `globPatterns` precaching the prerendered shell + `_app/` assets.
-- [ ] T012 [US1] Register the service worker on first load via the plugin's `registerSW` from `frontend/src/routes/+layout.ts`, keeping `prerender = true`.
-- [ ] T013 [US1] Inject the manifest `<link>`, `theme-color` meta, `apple-touch-icon`, and the generated iOS `apple-touch-startup-image` `<link>` set into `frontend/src/app.html`.
-- [ ] T014 [US1] Add `mime.AddExtensionType(".webmanifest", "application/manifest+json")` in `backend/internal/web/embed.go` before the file server is constructed (so the embedded manifest is served with the correct content type).
-- [ ] T015 [US1] Verify the build→embed staging carries the new assets: `make frontend-embed` (and the `Dockerfile` copy) place the generated manifest/SW/icons/splash into `backend/internal/web/dist/`; adjust `globPatterns`/paths if any asset is missed.
+- [X] T011 [US1] Configure `VitePWA({...})` in `frontend/vite.config.ts` — `generateSW`, `registerType: 'autoUpdate'`, manifest fields satisfying `contracts/manifest.schema.json` (name/short_name "Ring", `display: standalone`, scope/start_url `/`, theme/background colors, generated icons incl. maskable), and `globPatterns` precaching the prerendered shell + `_app/` assets.
+- [X] T012 [US1] Register the service worker on first load via the plugin's `registerSW` from `frontend/src/routes/+layout.ts`, keeping `prerender = true`.
+- [X] T013 [US1] Inject the manifest `<link>`, `theme-color` meta, `apple-touch-icon`, and the generated iOS `apple-touch-startup-image` `<link>` set into `frontend/src/app.html`.
+- [X] T014 [US1] Add `mime.AddExtensionType(".webmanifest", "application/manifest+json")` in `backend/internal/web/embed.go` before the file server is constructed (so the embedded manifest is served with the correct content type).
+- [X] T015 [US1] Verify the build→embed staging carries the new assets: `make frontend-embed` (and the `Dockerfile` copy) place the generated manifest/SW/icons/splash into `backend/internal/web/dist/`; adjust `globPatterns`/paths if any asset is missed.
 
 **Checkpoint**: US1 fully functional — installable, SW-controlled, offline-capable shell served from the single image.
 
