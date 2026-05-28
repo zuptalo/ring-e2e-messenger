@@ -28,9 +28,11 @@ Additionally, **independent of views 2–4**: if `platform === 'ios' && !pushCap
 
 | Condition | Action |
 |---|---|
-| `pushCapable && notificationPermission === 'default'` | Call `Notification.requestPermission()`, persist result (`granted`/`denied`). |
+| `pushCapable && notificationPermission === 'default'` | Show a one-time "Enable notifications" card in the app shell. The user's **tap** calls `Notification.requestPermission()` and persists the result (`granted`/`denied`); a dismissed prompt stays `default` (a later tap may ask again). "Not now" sets `skipped`. |
 | `!pushCapable && notificationPermission === 'default'` | Set `notificationPermission = 'skipped'`; do **not** prompt. |
-| `notificationPermission ∈ {granted, denied, skipped}` | No-op (never re-prompt). |
+| `notificationPermission ∈ {granted, denied, skipped}` | No-op (never re-prompt; the card is not shown). |
+
+The permission request MUST originate from a **user gesture** (the tap), never an automatic on-load call: iOS Safari standalone rejects a gesture-less request, and Chrome downgrades it to a silent quiet-UI chip. `install.completed` is logged once on the first standalone launch (guarded by `standaloneOnboarded`).
 
 Notification permission MUST NOT be requested in any pre-install view (views 2–4) — only in the standalone app shell, and only when `pushCapable` (FR-006, SC-004).
 

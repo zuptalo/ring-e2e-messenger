@@ -14,6 +14,7 @@ export type NotifPermission = 'default' | 'granted' | 'denied' | 'skipped';
 export interface OnboardingState {
   schemaVersion: number;
   firstLaunchAt: string;
+  standaloneOnboarded: boolean;
   persistRequested: boolean;
   persistGranted: boolean | null;
   notificationPermission: NotifPermission;
@@ -23,6 +24,7 @@ function defaults(): OnboardingState {
   return {
     schemaVersion: SCHEMA_VERSION,
     firstLaunchAt: new Date().toISOString(),
+    standaloneOnboarded: false,
     persistRequested: false,
     persistGranted: null,
     notificationPermission: 'default',
@@ -69,39 +71,62 @@ export function updateOnboardingState(patch: Partial<OnboardingState>): Onboardi
   return next;
 }
 
-// Onboarding-final step (T021, contracts/onboarding-ui.md §"Onboarding-final
-// step"): runs once, on the first standalone launch. Requests notification
-// permission only when the platform is push-capable and the user has not already
-// decided; otherwise records 'skipped'. MUST NOT be invoked in any pre-install
-// view — only from the standalone app shell (FR-006, SC-004). Idempotent: once
-// notificationPermission leaves 'default' it never prompts again.
-export async function runFirstStandaloneOnboarding(pushCapable: boolean): Promise<void> {
+// Onboarding-final step, part 1 (T021, contracts/onboarding-ui.md §"Onboarding-
+// final step"): runs once on the first standalone launch. Logs install.completed
+// and, on a push-incapable platform (iOS <16.4 or no Notification API), records
+// 'skipped' — there is nothing to prompt for. On a push-capable platform it does
+// NOT request permission here: the request MUST originate from a user gesture
+// (iOS Safari standalone requires one; Chrome otherwise shows only a silent
+// quiet-UI chip). The gesture path is requestNotificationPermission below.
+// MUST NOT be invoked in any pre-install view — only from the standalone app
+// shell (FR-006, SC-004). Idempotent via the standaloneOnboarded guard.
+export function enterStandalone(pushCapable: boolean): void {
   const state = loadOnboardingState();
-  if (state.notificationPermission !== 'default') return; // already decided — no-op
+  if (state.standaloneOnboarded) return; // first standalone launch only
 
+  updateOnboardingState({ standaloneOnboarded: true });
   logEvent('install.completed', 'standalone');
 
-  if (!pushCapable || typeof Notification === 'undefined') {
-    // Push-incapable platform (iOS <16.4, or no Notification API): never prompt.
+  if (
+    (!pushCapable || typeof Notification === 'undefined') &&
+    state.notificationPermission === 'default'
+  ) {
     updateOnboardingState({ notificationPermission: 'skipped' });
     logEvent('notif.permission', 'skipped');
-    return;
   }
+}
 
+// Onboarding-final step, part 2: invoked from a user gesture (the "Enable
+// notifications" tap in the standalone shell). Requests the OS permission and
+// persists the outcome. A dismissed prompt stays 'default' so a later gesture
+// may ask again; only granted/denied/skipped stick.
+export async function requestNotificationPermission(): Promise<NotifPermission> {
+  if (typeof Notification === 'undefined') {
+    updateOnboardingState({ notificationPermission: 'skipped' });
+    logEvent('notif.permission', 'skipped');
+    return 'skipped';
+  }
   try {
     const result = await Notification.requestPermission();
-    // 'default' here means the user dismissed without choosing — leave it
-    // 'default' so a later launch may prompt again; only granted/denied stick.
     if (result === 'granted' || result === 'denied') {
       updateOnboardingState({ notificationPermission: result });
       logEvent('notif.permission', result);
-    } else {
-      logEvent('notif.permission', 'default');
+      return result;
     }
+    logEvent('notif.permission', 'default');
+    return 'default';
   } catch {
     updateOnboardingState({ notificationPermission: 'skipped' });
     logEvent('notif.permission', 'skipped');
+    return 'skipped';
   }
+}
+
+// "Not now" — the user declined the notification step; do not prompt again.
+export function skipNotificationPermission(): NotifPermission {
+  updateOnboardingState({ notificationPermission: 'skipped' });
+  logEvent('notif.permission', 'skipped');
+  return 'skipped';
 }
 
 // First-launch durable-storage request (T026, US3, SC-006). Asks the browser to

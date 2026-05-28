@@ -3,7 +3,14 @@
   import { browser } from '$app/environment';
   import { getCapabilityProfile } from '$lib/pwa/capability';
   import { installPromptEvent } from '$lib/pwa/install';
-  import { runFirstStandaloneOnboarding, requestPersistentStorage } from '$lib/pwa/onboarding';
+  import {
+    enterStandalone,
+    requestNotificationPermission,
+    skipNotificationPermission,
+    requestPersistentStorage,
+    loadOnboardingState,
+    type NotifPermission,
+  } from '$lib/pwa/onboarding';
   import { logEvent } from '$lib/pwa/log';
   import InstallCoach from '$lib/components/InstallCoach.svelte';
   import IOSVersionGate from '$lib/components/IOSVersionGate.svelte';
@@ -78,6 +85,27 @@
     return 'unavailable';
   });
 
+  // Notification permission for the standalone onboarding-final step. Initialised
+  // from durable state; updated by the user-gesture handlers below. The prompt is
+  // a tap (not an auto-request) because iOS Safari standalone requires a gesture.
+  let notifPermission = $state<NotifPermission>(
+    browser ? loadOnboardingState().notificationPermission : 'default',
+  );
+  const needNotif = $derived(
+    view === 'standalone' &&
+      !!profile?.pushCapable &&
+      notifPermission === 'default' &&
+      browser &&
+      typeof Notification !== 'undefined',
+  );
+
+  async function enableNotifications() {
+    notifPermission = await requestNotificationPermission();
+  }
+  function skipNotifications() {
+    notifPermission = skipNotificationPermission();
+  }
+
   $effect(() => {
     if (!browser || !client) return;
     requestPersistentStorage();
@@ -88,7 +116,10 @@
     if (!profile || view === lastLogged) return;
     lastLogged = view;
     if (view === 'standalone') {
-      runFirstStandaloneOnboarding(profile.pushCapable);
+      enterStandalone(profile.pushCapable);
+      // Pick up a 'skipped' recorded for push-incapable platforms so the prompt
+      // card stays hidden there.
+      notifPermission = loadOnboardingState().notificationPermission;
     } else if (view === 'unavailable') {
       logEvent('install.unavailable', profile.platform);
     } else if (view === 'installed') {
@@ -125,6 +156,24 @@
       <p>Version: {VERSION}</p>
       <p>Commit: {COMMIT}</p>
       <p>skeleton OK</p>
+      {#if needNotif}
+        <section class="notif-card" data-testid="notif-prompt">
+          <p>Turn on notifications so Ring can alert you to new messages.</p>
+          <div class="notif-actions">
+            <button data-testid="notif-enable" type="button" onclick={enableNotifications}>
+              Enable notifications
+            </button>
+            <button
+              class="secondary"
+              data-testid="notif-skip"
+              type="button"
+              onclick={skipNotifications}
+            >
+              Not now
+            </button>
+          </div>
+        </section>
+      {/if}
     </main>
   {:else if view === 'coach-native'}
     <InstallCoach variant="native" />
@@ -219,5 +268,39 @@
 
   .install-hero h1 {
     margin: 0 0 0.75rem;
+  }
+
+  .notif-card {
+    margin-top: 1.5rem;
+    padding: 1rem 1.25rem;
+    border-radius: 0.75rem;
+    background: var(--ring-accent);
+  }
+
+  .notif-card p {
+    margin: 0 0 0.75rem;
+    color: var(--ring-fg);
+  }
+
+  .notif-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  .notif-card button {
+    padding: 0.6rem 1rem;
+    font: inherit;
+    border: none;
+    border-radius: 0.5rem;
+    background: var(--ring-btn-bg);
+    color: var(--ring-btn-fg);
+    cursor: pointer;
+  }
+
+  .notif-card button.secondary {
+    background: transparent;
+    color: var(--ring-muted);
+    border: 1px solid var(--ring-muted);
   }
 </style>
