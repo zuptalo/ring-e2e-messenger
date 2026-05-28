@@ -1,9 +1,14 @@
 <script lang="ts">
   import { onMount } from 'svelte';
+  import { initInstallCapture } from '$lib/pwa/install';
 
   let { children } = $props();
 
   onMount(() => {
+    // Capture beforeinstallprompt as early as possible (US2) so the install-first
+    // gate can offer a native Install button when the browser supports it.
+    initInstallCapture();
+
     // Register the generated service worker on first load (FR-002). Manual
     // registration (rather than the plugin's injected script) is the reliable
     // path with SvelteKit's prerendered output. registerType:'autoUpdate'

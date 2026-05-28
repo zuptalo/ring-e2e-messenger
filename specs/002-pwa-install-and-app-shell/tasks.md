@@ -81,15 +81,15 @@ Web app, two trees from feature 001: `frontend/` (SvelteKit/Vite) and `backend/`
 
 ### Tests for User Story 2 ⚠️ (write first, observe failing)
 
-- [ ] T016 [US2] Write `frontend/e2e/pwa.ios.spec.ts` (Playwright WebKit + injected iOS UA, MUST FAIL) — non-standalone iOS renders `InstallCoach` manual steps; no notification prompt occurs pre-install; `display-mode: standalone` emulation renders the app shell and suppresses coaching (US2 scenarios 1, 4, 5).
-- [ ] T017 [P] [US2] Extend `frontend/e2e/pwa.chromium.spec.ts` (MUST FAIL) — (a) with a stubbed `beforeinstallprompt`, the coach renders a native Install button that invokes `prompt()` (US2 scenario 2); (b) with NO `beforeinstallprompt` and a non-iOS UA, the **InstallUnavailable** "install on a supported mobile browser" notice renders, not a dead-end coach (FR-011, SC-007).
+- [X] T016 [US2] Write `frontend/e2e/pwa.ios.spec.ts` (Playwright WebKit + injected iOS UA, MUST FAIL) — non-standalone iOS renders `InstallCoach` manual steps; no notification prompt occurs pre-install; `display-mode: standalone` emulation renders the app shell and suppresses coaching (US2 scenarios 1, 4, 5).
+- [X] T017 [P] [US2] Extend `frontend/e2e/pwa.chromium.spec.ts` (MUST FAIL) — (a) with a stubbed `beforeinstallprompt`, the coach renders a native Install button that invokes `prompt()` (US2 scenario 2); (b) with NO `beforeinstallprompt` and a non-iOS UA, the **InstallUnavailable** "install on a supported mobile browser" notice renders, not a dead-end coach (FR-011, SC-007).
 
 ### Implementation for User Story 2
 
-- [ ] T018 [P] [US2] Implement `frontend/src/lib/components/InstallCoach.svelte` with two variants: iOS manual Share → "Add to Home Screen" steps, and a native Install button driven by a captured `beforeinstallprompt`.
-- [ ] T019 [US2] Implement install-first gating in `frontend/src/routes/+page.svelte` using `capability.ts`: `isStandalone` → app shell; else `InstallCoach`; non-installable (no prompt, not iOS Safari) → an "install on a supported mobile browser" notice (FR-011, `contracts/onboarding-ui.md` view table). Emit `coach.shown`.
-- [ ] T020 [US2] Capture `beforeinstallprompt` (prevent default, store the event) in `frontend/src/routes/+layout.ts` and expose `installPromptAvailable` + a `promptInstall()` to `InstallCoach`.
-- [ ] T021 [US2] Implement the post-install notification-permission step (in `onboarding.ts`, invoked from `+page.svelte` on first standalone launch): if `pushCapable && permission==='default'` call `Notification.requestPermission()`; else set `'skipped'`; never prompt pre-install or on push-incapable platforms (FR-006). Emit `install.completed` + `notif.permission`.
+- [X] T018 [P] [US2] Implement `frontend/src/lib/components/InstallCoach.svelte` with two variants: iOS manual Share → "Add to Home Screen" steps, and a native Install button driven by a captured `beforeinstallprompt`.
+- [X] T019 [US2] Implement install-first gating in `frontend/src/routes/+page.svelte` using `capability.ts`: `isStandalone` → app shell; else `InstallCoach`; non-installable (no prompt, not iOS Safari) → an "install on a supported mobile browser" notice (FR-011, `contracts/onboarding-ui.md` view table). Emit `coach.shown`.
+- [X] T020 [US2] Capture `beforeinstallprompt` (prevent default, store the event) in `frontend/src/routes/+layout.ts` and expose `installPromptAvailable` + a `promptInstall()` to `InstallCoach`.
+- [X] T021 [US2] Implement the post-install notification-permission step (in `onboarding.ts`, invoked from `+page.svelte` on first standalone launch): if `pushCapable && permission==='default'` call `Notification.requestPermission()`; else set `'skipped'`; never prompt pre-install or on push-incapable platforms (FR-006). Emit `install.completed` + `notif.permission`.
 
 **Checkpoint**: US1 + US2 both work independently; the app is install-gated with correct permission timing.
 

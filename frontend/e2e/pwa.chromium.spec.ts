@@ -42,3 +42,46 @@ test.describe('PWA app shell (US1)', () => {
     await context.setOffline(false);
   });
 });
+
+test.describe('Coached install-first onboarding — Chromium (US2)', () => {
+  test('non-iOS browser with no install prompt shows the InstallUnavailable notice', async ({
+    page,
+  }) => {
+    // Desktop Chrome, non-standalone, no captured beforeinstallprompt → the
+    // app must not dead-end on a coach it cannot honor (FR-011, SC-007).
+    await page.goto('/');
+    await expect(page.getByTestId('install-unavailable')).toBeVisible();
+    await expect(page.getByTestId('install-unavailable')).toContainText(
+      /supported mobile browser/i,
+    );
+    // Install-first: the app shell is not exposed pre-install.
+    await expect(page.getByTestId('app-shell')).toHaveCount(0);
+  });
+
+  test('a captured beforeinstallprompt renders a native Install button that calls prompt()', async ({
+    page,
+  }) => {
+    await page.goto('/');
+    // The InstallUnavailable notice proves hydration ran and the
+    // beforeinstallprompt listener is attached; now synthesize the event.
+    await expect(page.getByTestId('install-unavailable')).toBeVisible();
+    await page.evaluate(() => {
+      const e = new Event('beforeinstallprompt') as Event & {
+        prompt: () => Promise<void>;
+        userChoice: Promise<{ outcome: string; platform: string }>;
+      };
+      e.prompt = () => {
+        (window as unknown as { __promptCalled?: boolean }).__promptCalled = true;
+        return Promise.resolve();
+      };
+      e.userChoice = Promise.resolve({ outcome: 'accepted', platform: 'web' });
+      window.dispatchEvent(e);
+    });
+    const installBtn = page.getByTestId('install-native');
+    await expect(installBtn).toBeVisible();
+    await installBtn.click();
+    await page.waitForFunction(
+      () => (window as unknown as { __promptCalled?: boolean }).__promptCalled === true,
+    );
+  });
+});

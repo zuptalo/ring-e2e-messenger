@@ -4,6 +4,8 @@
 // The persist() and notification-permission orchestration that *consume* this
 // state are wired in US3 / US2 respectively.
 
+import { logEvent } from './log';
+
 const KEY = 'ring.onboarding.v1';
 const SCHEMA_VERSION = 1;
 
@@ -65,4 +67,39 @@ export function updateOnboardingState(patch: Partial<OnboardingState>): Onboardi
   };
   saveOnboardingState(next);
   return next;
+}
+
+// Onboarding-final step (T021, contracts/onboarding-ui.md §"Onboarding-final
+// step"): runs once, on the first standalone launch. Requests notification
+// permission only when the platform is push-capable and the user has not already
+// decided; otherwise records 'skipped'. MUST NOT be invoked in any pre-install
+// view — only from the standalone app shell (FR-006, SC-004). Idempotent: once
+// notificationPermission leaves 'default' it never prompts again.
+export async function runFirstStandaloneOnboarding(pushCapable: boolean): Promise<void> {
+  const state = loadOnboardingState();
+  if (state.notificationPermission !== 'default') return; // already decided — no-op
+
+  logEvent('install.completed', 'standalone');
+
+  if (!pushCapable || typeof Notification === 'undefined') {
+    // Push-incapable platform (iOS <16.4, or no Notification API): never prompt.
+    updateOnboardingState({ notificationPermission: 'skipped' });
+    logEvent('notif.permission', 'skipped');
+    return;
+  }
+
+  try {
+    const result = await Notification.requestPermission();
+    // 'default' here means the user dismissed without choosing — leave it
+    // 'default' so a later launch may prompt again; only granted/denied stick.
+    if (result === 'granted' || result === 'denied') {
+      updateOnboardingState({ notificationPermission: result });
+      logEvent('notif.permission', result);
+    } else {
+      logEvent('notif.permission', 'default');
+    }
+  } catch {
+    updateOnboardingState({ notificationPermission: 'skipped' });
+    logEvent('notif.permission', 'skipped');
+  }
 }
