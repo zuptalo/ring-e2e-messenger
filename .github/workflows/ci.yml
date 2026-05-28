@@ -150,6 +150,88 @@ jobs:
           mkdir -p ../backend/internal/web/dist
           cp -R build/. ../backend/internal/web/dist/
 
+      # Tee verbose output (which includes the binary's forwarded slog lines and
+      # testcontainers' container lifecycle logs) to a file so a CI-only failure
+      # — one that doesn't reproduce locally — leaves an actionable artifact.
+      # SC-003's zero-flake claim is only useful if failures are diagnosable.
       - name: Integration test (testcontainers)
         working-directory: backend
-        run: go test -tags=integration ./test/integration/...
+        run: |
+          set -o pipefail
+          go test -tags=integration -v ./test/integration/... 2>&1 | tee integration-test.log
+
+      - name: Upload integration failure logs
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: integration-logs
+          path: backend/integration-test.log
+          retention-days: 7
+
+  # US3 (SC-004): prove the production compose stack boots and the app gates on
+  # a healthy DB. This is the deploy slice the integration job does NOT cover —
+  # it builds the real single image and runs it under compose, not as a host
+  # binary fronted by an ad-hoc Caddy container.
+  compose-smoke:
+    name: compose-smoke
+    needs: detect
+    if: needs.detect.outputs.backend == 'true' && needs.detect.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    env:
+      # ring.localtest.me resolves to 127.0.0.1 publicly, so Caddy uses its
+      # internal CA (CADDY_GLOBAL_OPTIONS defaults to local_certs) and never
+      # attempts ACME. Names outside Caddy's internal-CA rules would trigger a
+      # doomed ACME handshake in CI.
+      RING_FQDN: ring.localtest.me
+      COMPOSE: docker compose -f docker-compose.yml -f docker-compose.prod.yml
+    steps:
+      - uses: actions/checkout@v4
+
+      # Stamp the image with real build values so the startup-log assertion has
+      # something concrete to match (the Dockerfile otherwise defaults to
+      # dev/unknown). git describe --always yields a short SHA when no tag.
+      - name: Resolve build stamps
+        id: stamp
+        run: |
+          echo "version=$(git describe --tags --dirty --always 2>/dev/null || echo dev)" >> "$GITHUB_OUTPUT"
+          echo "commit=$(git rev-parse HEAD 2>/dev/null || echo unknown)" >> "$GITHUB_OUTPUT"
+
+      - name: Build production image (make image)
+        env:
+          RING_VERSION: ${{ steps.stamp.outputs.version }}
+          RING_COMMIT: ${{ steps.stamp.outputs.commit }}
+        run: make image
+
+      - name: Bring the stack up
+        run: $COMPOSE up -d
+
+      # Health-check the app directly over the compose-internal network. The
+      # distroless app image has no shell or wget, so exec into the proxy
+      # (alpine/busybox) and reach app:8080 by plain HTTP — this exercises the
+      # app's own /healthz, not Caddy's TLS path (that is T014's job).
+      - name: Wait for app /healthz (<=60s, DB-gated)
+        run: |
+          for i in $(seq 1 12); do
+            if $COMPOSE exec -T proxy wget -qO- http://app:8080/healthz 2>/dev/null | grep -q '"status":"ok"'; then
+              echo "app healthy after ~$((i * 5))s"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::app did not report healthy within 60s"
+          $COMPOSE ps
+          $COMPOSE logs
+          exit 1
+
+      - name: Assert startup log carries the injected version + commit
+        run: |
+          logs="$($COMPOSE logs app)"
+          echo "$logs"
+          echo "$logs" | grep -q '"version":"${{ steps.stamp.outputs.version }}"' \
+            || { echo "::error::startup log missing injected version"; exit 1; }
+          echo "$logs" | grep -q '"commit":"${{ steps.stamp.outputs.commit }}"' \
+            || { echo "::error::startup log missing injected commit"; exit 1; }
+
+      - name: Tear down
+        if: always()
+        run: $COMPOSE down -v
