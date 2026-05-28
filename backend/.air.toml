@@ -1,0 +1,24 @@
+root = "."
+tmp_dir = "tmp"
+
+[build]
+cmd = "go build -o ./tmp/ring ./cmd/ring"
+bin = "./tmp/ring"
+full_bin = "./tmp/ring serve"
+include_ext = ["go"]
+exclude_dir = ["tmp", "internal/web/dist", "test/integration"]
+delay = 500
+stop_on_error = true
+log = "air-build-errors.log"
+
+[log]
+time = true
+
+[color]
+main = "magenta"
+watcher = "cyan"
+build = "yellow"
+runner = "green"
+
+[misc]
+clean_on_exit = true

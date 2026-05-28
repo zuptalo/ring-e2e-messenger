@@ -7,6 +7,40 @@ set -e
 protected_branch='main'
 branch_re='^(0[0-9]{2}|1[0-9]{2}|2[0-9]{2})-[a-z0-9-]+$'
 
+# Non-blocking reminder: surface ROADMAP.md drift. The speckit after_<phase>
+# hooks only flip a stage column when you run the matching /speckit-<phase>
+# command; work done by hand (editing tasks.md, committing directly) bypasses
+# them, so the roadmap can silently go stale. When a feature's tasks.md is
+# fully checked but its Implement column is not yet ✅, print a reminder. It is
+# deliberately a warning, not a gate: the Implement column is meant to flip on
+# merge to main, not on local task completion.
+roadmap_freshness_reminder() {
+  branch="$1"
+  tasks="specs/${branch}/tasks.md"
+  roadmap="ROADMAP.md"
+  [ -f "$tasks" ] || return 0
+  [ -f "$roadmap" ] || return 0
+
+  total=$(grep -cE '^- \[[ Xx]\] T' "$tasks") || true
+  unchecked=$(grep -cE '^- \[ \] T' "$tasks") || true
+  [ "$total" -gt 0 ] || return 0
+  [ "$unchecked" -eq 0 ] || return 0
+
+  feature_id=$(echo "$branch" | cut -c1-3)
+  impl=$(awk -F'|' -v id="$feature_id" '
+    /^\| *[0-9][0-9][0-9] / {
+      key=$2; gsub(/^[ \t]+|[ \t]+$/, "", key)
+      if (key == id) { v=$(NF-1); gsub(/^[ \t]+|[ \t]+$/, "", v); print v; exit }
+    }' "$roadmap")
+
+  if [ -n "$impl" ] && [ "$impl" != "✅" ]; then
+    echo "⚠ pre-push: specs/${branch}/tasks.md is 100% complete, but ROADMAP.md"
+    echo "  feature ${feature_id} Implement column is '${impl}', not ✅."
+    echo "  Run /speckit-roadmap-mark-implement-done when this merges to main."
+    echo "  (reminder only — push continues)"
+  fi
+}
+
 # Read each ref being pushed. Format per `git help githooks`:
 #   <local-ref> <local-sha> <remote-ref> <remote-sha>
 while read -r local_ref local_sha remote_ref remote_sha; do
@@ -27,6 +61,8 @@ while read -r local_ref local_sha remote_ref remote_sha; do
     echo "  Ranges: 001-099 (planned) | 101-199 (ad-hoc) | 201-299 (hotfix)"
     exit 1
   fi
+
+  roadmap_freshness_reminder "$remote_branch"
 done
 
 exit 0

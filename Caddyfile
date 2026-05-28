@@ -3,19 +3,33 @@
 # host.docker.internal:8080 (Go binary running on the host). In prod, the
 # docker-compose.prod.yml override sets RING_UPSTREAM=app:8080.
 #
-# For ring.localtest.me (and any *.localhost / *.localtest.me), Caddy issues
-# an internal-CA cert automatically. Run `make trust` once to install Caddy's
-# root CA into the host trust store.
-#
-# For a public FQDN, Caddy attempts ACME (Let's Encrypt). Ensure the FQDN
-# resolves to the host and ports 80/443 are reachable.
+# TLS issuance is controlled by the CADDY_GLOBAL_OPTIONS env var, expanded
+# into the global block below.
+#   - Default (local dev): CADDY_GLOBAL_OPTIONS=local_certs → Caddy uses its
+#     internal CA for every site. Paired with `make trust` on first run.
+#     Required because `.localtest.me` is NOT in Caddy's auto-internal-CA
+#     list (only `.localhost`, `.local`, `.home.arpa`, `.internal`, and
+#     loopback IPs are) — without `local_certs` Caddy would attempt ACME
+#     and fail (Let's Encrypt rejects records pointing at 127.0.0.1).
+#   - Real prod: set `CADDY_GLOBAL_OPTIONS=` (empty) in your .env so Caddy
+#     ACMEs a public certificate from Let's Encrypt. Ensure the FQDN
+#     resolves to the host and ports 80/443 are reachable.
+
+{
+    {$CADDY_GLOBAL_OPTIONS}
+}
 
 {$RING_FQDN} {
-  encode zstd gzip
-  reverse_proxy {$RING_UPSTREAM:host.docker.internal:8080}
+    # No explicit `tls` directive: Caddy's automatic HTTPS decides issuance.
+    # With CADDY_GLOBAL_OPTIONS=local_certs (dev default) it serves an
+    # internal-CA cert; with it empty (real prod) Caddy ACMEs a publicly
+    # trusted cert from Let's Encrypt for {$RING_FQDN} on first request — no
+    # config change needed to go from dev to prod, just the env var. (T036)
+    encode zstd gzip
+    reverse_proxy {$RING_UPSTREAM:host.docker.internal:8080}
 
-  log {
-    output stdout
-    format json
-  }
+    log {
+        output stdout
+        format json
+    }
 }

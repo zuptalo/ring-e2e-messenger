@@ -26,6 +26,10 @@ services:
       - "443:443"
     environment:
       RING_FQDN: ${RING_FQDN:-ring.localtest.me}
+      # Default to Caddy's internal CA so the local-dev FQDN
+      # (ring.localtest.me) gets a working cert without ACME. Real-prod
+      # deployments set this to "" in their .env to enable Let's Encrypt.
+      CADDY_GLOBAL_OPTIONS: ${CADDY_GLOBAL_OPTIONS-local_certs}
     volumes:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data

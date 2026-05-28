@@ -15,7 +15,7 @@ feed `/speckit-specify` when starting that spec.
 
 | ID  | Title                              | Specify | Clarify | Plan | Tasks | Analyze | T→I | Implement |
 | --- | ---------------------------------- | :-----: | :-----: | :--: | :---: | :-----: | :-: | :-------: |
-| 001 | repo-skeleton-end-to-end-hello     |   ⬜    |   ⬜    |  ⬜  |  ⬜   |   ⬜    | ⬜  |    ⬜     |
+| 001 | repo-skeleton-end-to-end-hello     |   ✅    |   ✅    |  ✅  |  ✅   |   ✅    | ✅  |    🟡     |
 | 002 | pwa-install-and-app-shell          |   ⬜    |   ⬜    |  ⬜  |  ⬜   |   ⬜    | ⬜  |    ⬜     |
 | 003 | auth-and-identity-bootstrap        |   ⬜    |   ⬜    |  ⬜  |  ⬜   |   ⬜    | ⬜  |    ⬜     |
 | 004 | one-to-one-encrypted-messaging     |   ⬜    |   ⬜    |  ⬜  |  ⬜   |   ⬜    | ⬜  |    ⬜     |
@@ -32,6 +32,7 @@ feed `/speckit-specify` when starting that spec.
 | --- | ---------------------------------- | ----- |
 | 101 | constitution-v1-1-0 (governance)   | Constitution amendment v1.0.0 → v1.1.0. Merged. |
 | 102 | infra-bootstrap (tooling)          | One-time infra: Husky hooks, compose stack, Caddyfile, Makefile, roadmap extension, --range flag, ROADMAP.md. |
+| 103 | release-engineering                | Release pipeline: multi-arch GHCR images on push-to-main (`:sha-<short>`) + tag push `vX.Y.Z` (`:vX.Y.Z` + `:X.Y` + `:X` + `:latest`), OCI labels, prod pins via `RING_IMAGE_TAG`. Targeted to land right after 001 merges. |
 
 ## Hot Fixes (201–299)
 
@@ -154,3 +155,36 @@ _(none yet)_
 > test: admin token can suspend; suspended user's WebSocket is forcibly
 > closed and reconnect is rejected; non-admin token cannot reach
 > `/api/admin/*`.
+
+### 103 — release-engineering (ad-hoc)
+
+> Establish the release pipeline so a production host can pin to an
+> immutable container image and upgrade by bumping one value. Publish
+> multi-arch (linux/amd64 + linux/arm64) images to
+> `ghcr.io/zuptalo/ring-e2ee-messenger` from two new GitHub Actions
+> workflows: `publish-main.yml` triggers on push-to-main and pushes
+> `:sha-<short>` (immutable, every commit); `release.yml` triggers on tag
+> push `vX.Y.Z` and pushes `:vX.Y.Z` (immutable) plus moving pointers
+> `:X.Y`, `:X`, and `:latest`. Both use `docker/build-push-action` with
+> `docker/setup-buildx-action` + `docker/setup-qemu-action`. The
+> `release.yml` job also runs `gh release create --generate-notes` to
+> produce a Release with auto-generated notes grouped from PR titles
+> (relies on the squash-merge convention so PR titles ARE the commit
+> subjects). Bake OCI labels onto every image:
+> `org.opencontainers.image.source` (repo URL),
+> `org.opencontainers.image.revision` (commit SHA),
+> `org.opencontainers.image.version` (`git describe` output),
+> `org.opencontainers.image.created` (RFC3339 timestamp). Update
+> `docker-compose.prod.yml` to read `RING_IMAGE_TAG` from `.env` and
+> pull `ghcr.io/.../ring:${RING_IMAGE_TAG}`; production hosts MUST pin
+> to an exact `:vX.Y.Z` tag, never `:latest`. Add `make release
+> VERSION=vX.Y.Z` Makefile target that runs `git tag -s -m` then
+> `git push --tags`. SemVer per constitution; pre-1.0 minors may carry
+> breaking changes. Out of scope: `release-please` or other
+> automated-version-bump tooling (defer until cadence justifies it),
+> SBOM generation, image signing with cosign. Neither workflow becomes
+> a required PR status check — they trigger on push-to-main and
+> tag-push, not on PR open. Integration tests: cut a test tag
+> `v0.0.0-test`, observe the release workflow pushes the expected
+> ghcr.io tags, observe the GitHub Release is created with notes, then
+> delete the test tag and release before merging.

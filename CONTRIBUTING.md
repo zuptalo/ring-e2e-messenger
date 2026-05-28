@@ -5,6 +5,16 @@ setup (clone → run), see [`specs/001-project-skeleton/quickstart.md`][qs].
 
 [qs]: specs/001-project-skeleton/quickstart.md
 
+## Running the tests
+
+`make test` runs the backend + frontend unit suites (no Docker), `make lint`
+runs every linter (golangci-lint, govulncheck, ESLint, Prettier, `tsc`), and
+the integration test boots the production binary against a
+testcontainers-managed Postgres + Caddy (`cd backend && go test
+-tags=integration ./test/integration/...`, needs a running Docker daemon). The
+copy-pasteable commands live in [quickstart §6][qs] — that quickstart is the
+single source of truth, so this section deliberately does not duplicate it.
+
 ## Pull requests
 
 ### Auto-closing issues

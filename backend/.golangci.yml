@@ -1,0 +1,41 @@
+# golangci-lint v2 config for Ring backend. Constitution §C + research R14.
+# gosimple is dropped: in v2 it is merged into staticcheck.
+# gofumpt is moved from linters to formatters.
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  default: none
+  enable:
+    - errcheck
+    - govet
+    - staticcheck
+    - unused
+    - gosec
+    - revive
+    - bodyclose
+    - errorlint
+    - gocritic
+    - ineffassign
+    - prealloc
+    - unparam
+  settings:
+    revive:
+      rules:
+        - name: exported
+          disabled: false
+    gosec:
+      excludes:
+        - G104
+  exclusions:
+    rules:
+      - path: _test\.go
+        linters:
+          - gosec
+          - errcheck
+
+formatters:
+  enable:
+    - gofumpt
