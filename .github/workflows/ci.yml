@@ -1,0 +1,162 @@
+name: CI
+
+# Per spec 001 research R7 / task T030. Jobs gate every PR (and every push to
+# main): fast backend lint+unit, frontend lint+typecheck+unit, and a slower
+# testcontainers-backed integration job that proves the embedded-frontend +
+# Caddy-fronted-TLS slice end-to-end (FR-007).
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The backend/ and frontend/ source trees arrive incrementally across specs,
+  # and a workflow-bootstrap branch (cut from main before that code lands) has
+  # neither. Mirror the pre-commit hook's "run a stack's gate only if that
+  # stack exists" rule so CI is correct at every stage of the project's
+  # evolution: detect which trees are present, then gate each job on it. Once
+  # both trees are committed (every normal branch), detection is always true
+  # and every job runs.
+  detect:
+    runs-on: ubuntu-latest
+    outputs:
+      backend: ${{ steps.trees.outputs.backend }}
+      frontend: ${{ steps.trees.outputs.frontend }}
+    steps:
+      - uses: actions/checkout@v4
+      - id: trees
+        run: |
+          echo "backend=$([ -f backend/go.mod ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+          echo "frontend=$([ -f frontend/package.json ] && echo true || echo false)" >> "$GITHUB_OUTPUT"
+
+  backend:
+    name: backend (go ${{ matrix.go-version }})
+    needs: detect
+    if: needs.detect.outputs.backend == 'true'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        # Constitution "two most recent Go releases". go.mod requires 1.26, so
+        # the 1.25 entry exercises the toolchain auto-upgrade path (GOTOOLCHAIN
+        # defaults to auto) rather than a true 1.25 build.
+        go-version: ['1.26', '1.25']
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ matrix.go-version }}
+          cache-dependency-path: backend/go.sum
+
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v7
+        with:
+          version: v2.12.2
+          working-directory: backend
+
+      - name: govulncheck
+        run: go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+      - name: go test (unit, no integration tag)
+        run: go test ./...
+
+  frontend:
+    name: frontend
+    needs: detect
+    if: needs.detect.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      # Generate .svelte-kit/tsconfig.json (extended by tsconfig.json) so
+      # svelte-check and tsc have the SvelteKit-managed config to build on.
+      - name: SvelteKit sync
+        run: pnpm exec svelte-kit sync
+
+      - name: ESLint
+        run: pnpm exec eslint .
+
+      - name: Prettier check
+        run: pnpm exec prettier --check .
+
+      - name: svelte-check
+        run: pnpm exec svelte-check --tsconfig ./tsconfig.json
+
+      - name: tsc --noEmit
+        run: pnpm exec tsc --noEmit
+
+      - name: Vitest
+        run: pnpm test
+
+  integration:
+    name: integration
+    needs: detect
+    if: needs.detect.outputs.backend == 'true' && needs.detect.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: '1.26'
+          cache-dependency-path: backend/go.sum
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install frontend deps
+        working-directory: frontend
+        run: pnpm install --frozen-lockfile
+
+      # Build the SvelteKit shell and stage it into the Go embed root. The
+      # integration test rebuilds with its own marker version, but staging here
+      # mirrors the production pipeline (T019/T028) and guarantees embed input
+      # exists before the test's `go build ./cmd/ring`.
+      - name: Build frontend and stage embed
+        working-directory: frontend
+        run: |
+          RING_VERSION="$(git describe --tags --dirty --always 2>/dev/null || echo dev)" \
+          RING_COMMIT="$(git rev-parse HEAD 2>/dev/null || echo unknown)" \
+            pnpm run build
+          rm -rf ../backend/internal/web/dist
+          mkdir -p ../backend/internal/web/dist
+          cp -R build/. ../backend/internal/web/dist/
+
+      - name: Integration test (testcontainers)
+        working-directory: backend
+        run: go test -tags=integration ./test/integration/...
