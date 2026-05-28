@@ -15,6 +15,7 @@
   import InstallCoach from '$lib/components/InstallCoach.svelte';
   import IOSVersionGate from '$lib/components/IOSVersionGate.svelte';
   import RingAppIcon from '$lib/components/RingAppIcon.svelte';
+  import Splash from '$lib/components/Splash.svelte';
   import { VERSION, COMMIT } from '$lib/version';
 
   // FR-013 markers live in a hidden block so curl/integration tests still find
@@ -151,6 +152,7 @@
 
 {#if client && profile}
   {#if view === 'standalone'}
+    <Splash />
     <main data-testid="app-shell">
       <h1>Ring</h1>
       <p>Version: {VERSION}</p>
