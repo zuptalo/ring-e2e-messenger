@@ -18,8 +18,14 @@
     // registration (rather than the plugin's injected script) is the reliable
     // path with SvelteKit's prerendered output. registerType:'autoUpdate'
     // makes the SW skipWaiting + clientsClaim, so it controls the page.
+    // In dev (make dev-remote, PWA devOptions) vite-plugin-pwa serves a dev
+    // service worker as an ES module at /dev-sw.js?dev-sw; production serves the
+    // classic precache SW at /sw.js. Pick the right URL/type per mode.
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js', { scope: '/' }).catch(() => {
+      const [swUrl, swType] = import.meta.env.DEV
+        ? (['/dev-sw.js?dev-sw', 'module'] as const)
+        : (['/sw.js', 'classic'] as const);
+      navigator.serviceWorker.register(swUrl, { scope: '/', type: swType }).catch(() => {
         // Unsupported or insecure context — the app still renders; install-gating
         // and offline simply don't engage. (FR-011 handles the messaging.)
       });

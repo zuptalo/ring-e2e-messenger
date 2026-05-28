@@ -6,7 +6,6 @@
 /// <reference types="vite-plugin-pwa/pwa-assets" />
 
 declare global {
-   
   namespace App {}
 }
 

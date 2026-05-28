@@ -1,10 +1,17 @@
 # Ring — developer-facing entry points. Constitution §D (Makefile Contract).
 # Every recurring command lives here so the surface is uniform and discoverable.
 .DEFAULT_GOAL := help
-.PHONY: help dev dev-pwa up down build image test test-e2e lint migrate seed logs clean trust install fmt vapid-gen version frontend-embed
+.PHONY: help dev dev-pwa dev-remote dev-remote-prod up down build image test test-e2e lint migrate seed logs clean trust install fmt vapid-gen version frontend-embed
 
 RING_FQDN ?= ring.localtest.me
 DATABASE_URL ?= postgres://ring:ring@localhost:5432/ring?sslmode=disable
+
+# Remote live-dev through a home reverse proxy (make dev-remote / dev-remote-prod).
+RING_REMOTE_HOST ?= ring-home.zuptalo.com
+RING_DEV_PORT ?= 5173
+RING_PREVIEW_PORT ?= 4173
+# Best-effort LAN IP of this laptop (the address your proxy forwards to).
+LAN_IP := $(shell ipconfig getifaddr en0 2>/dev/null || ipconfig getifaddr en1 2>/dev/null || hostname -I 2>/dev/null | awk '{print $$1}' || echo '<laptop-LAN-IP>')
 
 # Build-time version stamping (T005/T006). `?=` so callers can override.
 RING_VERSION ?= $(shell git describe --tags --dirty --always 2>/dev/null || echo dev)
@@ -34,6 +41,30 @@ dev-pwa: ## Build the frontend and preview it with the PWA active (SW+manifest; 
 	@echo "PWA preview (service worker + manifest active) → http://localhost:4173"
 	@echo "localhost is a secure context, so the SW registers. Re-run after changes (preview has no hot reload)."
 	cd frontend && pnpm run preview
+
+dev-remote: ## Live-reload dev (HMR + live PWA) exposed via your reverse proxy at https://$(RING_REMOTE_HOST)
+	@if [ ! -f frontend/package.json ]; then echo "dev-remote needs the frontend"; exit 1; fi
+	@echo ""
+	@echo "  Point your home reverse proxy:"
+	@echo "    https://$(RING_REMOTE_HOST)   ->   http://$(LAN_IP):$(RING_DEV_PORT)   (HTTP upstream; enable websocket upgrade for HMR)"
+	@echo ""
+	@echo "  Then open https://$(RING_REMOTE_HOST)/  — edits hot-reload; the app is installable (manifest + dev SW live)."
+	@echo "  Install-first: a browser tab shows the install coach; 'Add to Home Screen' / Install to reach the app shell."
+	@echo ""
+	cd frontend && RING_REMOTE_HOST=$(RING_REMOTE_HOST) RING_DEV_PORT=$(RING_DEV_PORT) \
+		RING_VERSION=$(RING_VERSION) RING_COMMIT=$(RING_COMMIT) \
+		pnpm exec vite dev
+
+dev-remote-prod: ## Production-exact preview (real Workbox SW, no HMR) exposed via your reverse proxy
+	@if [ ! -f frontend/package.json ]; then echo "dev-remote-prod needs the frontend"; exit 1; fi
+	@echo ""
+	@echo "  Point your home reverse proxy:"
+	@echo "    https://$(RING_REMOTE_HOST)   ->   http://$(LAN_IP):$(RING_PREVIEW_PORT)"
+	@echo ""
+	@echo "  Building the production bundle (real precache service worker)…"
+	cd frontend && RING_VERSION=$(RING_VERSION) RING_COMMIT=$(RING_COMMIT) pnpm run build
+	@echo "  Serving the built bundle — re-run this target after changes (no hot reload)."
+	cd frontend && RING_REMOTE_HOST=$(RING_REMOTE_HOST) RING_PREVIEW_PORT=$(RING_PREVIEW_PORT) pnpm exec vite preview
 
 up: ## docker compose up -d (full stack, prebuilt image)
 	RING_FQDN=$(RING_FQDN) docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d
