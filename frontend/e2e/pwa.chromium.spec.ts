@@ -85,3 +85,46 @@ test.describe('Coached install-first onboarding — Chromium (US2)', () => {
     );
   });
 });
+
+test.describe('Generated icon + iOS splash assets (SC-009)', () => {
+  test('the manifest advertises the full icon set including a maskable icon', async ({
+    request,
+  }) => {
+    const manifest = await (await request.get('/manifest.webmanifest')).json();
+    const sizes: string[] = manifest.icons.map((i: { sizes: string }) => i.sizes);
+    // The minimal-2023 set: 64, 192, 512 + a 512 maskable — all from icon.svg.
+    expect(sizes).toEqual(expect.arrayContaining(['64x64', '192x192', '512x512']));
+    const maskable = manifest.icons.filter((i: { purpose?: string }) =>
+      i.purpose?.includes('maskable'),
+    );
+    expect(maskable.length).toBeGreaterThan(0);
+    // Every advertised icon must actually be served from the embed root.
+    for (const icon of manifest.icons as { src: string }[]) {
+      const res = await request.get(new URL(icon.src, 'http://localhost/').pathname);
+      expect(res.status(), `icon ${icon.src}`).toBe(200);
+      expect(res.headers()['content-type']).toContain('image/png');
+    }
+  });
+
+  test('the apple-touch-icon and iOS apple-touch-startup-image splash set are served', async ({
+    page,
+    request,
+  }) => {
+    await page.goto('/');
+    const touchIcon = await page.locator('link[rel="apple-touch-icon"]').getAttribute('href');
+    expect(touchIcon).toBeTruthy();
+    expect((await request.get(touchIcon!)).status()).toBe(200);
+
+    // The generated iOS launch-image set (portrait + landscape per device size).
+    const splashHrefs = await page
+      .locator('link[rel="apple-touch-startup-image"]')
+      .evaluateAll((els) => els.map((e) => e.getAttribute('href') ?? ''));
+    expect(splashHrefs.length).toBeGreaterThan(10);
+    // Spot-check that the referenced PNGs resolve (filenames must match the build).
+    for (const href of [splashHrefs[0], splashHrefs[splashHrefs.length - 1]]) {
+      const res = await request.get(href);
+      expect(res.status(), `splash ${href}`).toBe(200);
+      expect(res.headers()['content-type']).toContain('image/png');
+    }
+  });
+});

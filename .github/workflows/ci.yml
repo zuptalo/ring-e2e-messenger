@@ -109,6 +109,53 @@ jobs:
       - name: Vitest
         run: pnpm test
 
+  # Playwright e2e (T027): the install-first PWA paths across both engines.
+  # Chromium covers manifest/SW-control/offline + the native install prompt;
+  # WebKit (iOS device profile) covers the iOS A2HS coaching and the <16.4
+  # version gate — engines that cannot run on the maintainer's macOS host, so
+  # the Linux runner is their authoritative gate. The Playwright config's
+  # webServer builds the production bundle and serves it via `vite preview`.
+  e2e:
+    name: e2e
+    needs: detect
+    if: needs.detect.outputs.frontend == 'true'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9.15.9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+          cache-dependency-path: frontend/pnpm-lock.yaml
+
+      - name: Install deps
+        run: pnpm install --frozen-lockfile
+
+      - name: SvelteKit sync
+        run: pnpm exec svelte-kit sync
+
+      - name: Install Playwright browsers
+        run: pnpm exec playwright install --with-deps chromium webkit
+
+      - name: Playwright test
+        run: pnpm exec playwright test
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report
+          retention-days: 7
+
   integration:
     name: integration
     needs: detect

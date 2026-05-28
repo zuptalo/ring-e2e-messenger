@@ -6,7 +6,9 @@
     <meta name="description" content="Ring — encrypted messenger" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="theme-color" content="#0f1c2e" />
-    <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png" />
+    <!-- apple-touch-icon + the iOS apple-touch-startup-image splash links are
+         injected from the generated pwaAssets head set in +layout.svelte, so the
+         hrefs always match the emitted PNG filenames (SC-009). -->
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     %sveltekit.head%

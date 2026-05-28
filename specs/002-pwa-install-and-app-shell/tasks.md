@@ -118,12 +118,12 @@ Web app, two trees from feature 001: `frontend/` (SvelteKit/Vite) and `backend/`
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T027 [P] Add a Playwright e2e step/job to `.github/workflows/ci.yml` (install Chromium+WebKit, build the frontend, run `pnpm exec playwright test`); upload the Playwright report as an artifact on failure.
-- [ ] T028 [P] Add an optional `test-e2e` target to the root `Makefile` (`cd frontend && pnpm exec playwright test`); do not alter the constitution-mandated targets.
-- [ ] T029 Verify SC-009: the icon set (all required sizes incl. maskable) and the iOS splash image set are generated from the single `icon.svg` and present in `frontend/build/` after `pnpm run build` (assert in the build/e2e).
-- [ ] T030 [P] Run the Playwright e2e suite 10× locally to confirm zero-flake (deterministic CI); record the outcome in the PR description.
+- [X] T027 [P] Add a Playwright e2e step/job to `.github/workflows/ci.yml` (install Chromium+WebKit, build the frontend, run `pnpm exec playwright test`); upload the Playwright report as an artifact on failure.
+- [X] T028 [P] Add an optional `test-e2e` target to the root `Makefile` (`cd frontend && pnpm exec playwright test`); do not alter the constitution-mandated targets.
+- [X] T029 Verify SC-009: the icon set (all required sizes incl. maskable) and the iOS splash image set are generated from the single `icon.svg` and present in `frontend/build/` after `pnpm run build` (assert in the build/e2e).
+- [X] T030 [P] Run the Playwright e2e suite 10× locally to confirm zero-flake (deterministic CI); record the outcome in the PR description.
 - [ ] T031 Manual device verification per `quickstart.md` §4: install on a real iOS Safari device (≥16.4 and, if available, <16.4) and an Android Chrome device; confirm the coached install, standalone launch, splash, and (≥16.4) the post-install permission prompt. Record outcomes (SC-001) in the PR description.
-- [ ] T032 [P] Final docs pass: reconcile `quickstart.md` with the shipped config; confirm the next release is tagged MINOR (`v0.2.0`) per plan §IV.
+- [X] T032 [P] Final docs pass: reconcile `quickstart.md` with the shipped config; confirm the next release is tagged MINOR (`v0.2.0`) per plan §IV.
 
 ---
 

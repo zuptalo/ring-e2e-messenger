@@ -1,7 +1,7 @@
 # Ring — developer-facing entry points. Constitution §D (Makefile Contract).
 # Every recurring command lives here so the surface is uniform and discoverable.
 .DEFAULT_GOAL := help
-.PHONY: help dev dev-pwa up down build image test lint migrate seed logs clean trust install fmt vapid-gen version frontend-embed
+.PHONY: help dev dev-pwa up down build image test test-e2e lint migrate seed logs clean trust install fmt vapid-gen version frontend-embed
 
 RING_FQDN ?= ring.localtest.me
 DATABASE_URL ?= postgres://ring:ring@localhost:5432/ring?sslmode=disable
@@ -64,6 +64,10 @@ version: ## Show resolved RING_VERSION/RING_COMMIT (debugging build stamps)
 test: ## Run all tests (Go + frontend)
 	@if [ -f backend/go.mod ]; then cd backend && go test ./...; fi
 	@if [ -f frontend/package.json ]; then cd frontend && pnpm run test; fi
+
+test-e2e: ## Run the Playwright e2e suite (Chromium + WebKit; builds + previews the prod bundle)
+	@if [ ! -f frontend/package.json ]; then echo "test-e2e needs the frontend"; exit 1; fi
+	cd frontend && pnpm exec playwright test
 
 lint: ## Run all linters (Go + frontend)
 	@if [ -f backend/go.mod ]; then cd backend && golangci-lint run ./... && govulncheck ./...; fi
