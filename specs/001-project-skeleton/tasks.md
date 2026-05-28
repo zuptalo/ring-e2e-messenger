@@ -191,7 +191,7 @@ Shared infrastructure (`Makefile`, `Dockerfile`, `Caddyfile`, `docker-compose*.y
 
 - [X] T041 Verify the four spec marker strings (`Ring`, `v0.1.0` or current version, the 40-char SHA, `skeleton OK`) appear in the rendered `frontend/build/index.html` AND in the embedded copy at `backend/internal/web/dist/index.html`, by `grep -l "skeleton OK"` on both files. This is the FR-013 manual gate.
 
-- [ ] T042 Validate `quickstart.md` §1–§4 end-to-end on the working tree: `git clone` simulation (use a fresh checkout in `/tmp`), `cp .env.example .env`, `make trust`, `make image && make up`, browser-visit `https://ring.localtest.me/`. Time the elapsed minutes from `cp` to browser-loaded — confirm SC-001 (<10 minutes). Record in PR description.
+- [X] T042 Validate `quickstart.md` §1–§4 end-to-end on the working tree: `git clone` simulation (use a fresh checkout in `/tmp`), `cp .env.example .env`, `make trust`, `make image && make up`, browser-visit `https://ring.localtest.me/`. Time the elapsed minutes from `cp` to browser-loaded — confirm SC-001 (<10 minutes). Record in PR description.
 
 - [X] T043 [P] Verify FR-004 (Makefile contract) explicitly: run `make help` and assert the output lists every constitution-mandated target (`dev`, `up`, `down`, `build`, `image`, `test`, `lint`, `migrate`, `logs`, `clean`, `trust`). Then dry-run each target with the stack in the expected state (DB+proxy up for the runtime targets, code present for the build/test/lint targets) and confirm none short-circuit to no-op. Record outcomes in PR description. This is the only gate against a silent regression that removes or no-ops a required target.
 
