@@ -4,13 +4,56 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="description" content="Ring — encrypted messenger" />
+    <meta name="color-scheme" content="dark light" />
     <link rel="manifest" href="/manifest.webmanifest" />
-    <meta name="theme-color" content="#0f1c2e" />
-    <!-- apple-touch-icon + the iOS apple-touch-startup-image splash links are
-         injected from the generated pwaAssets head set in +layout.svelte, so the
-         hrefs always match the emitted PNG filenames (SC-009). -->
+    <meta name="theme-color" content="#0f1c2e" media="(prefers-color-scheme: dark)" />
+    <meta name="theme-color" content="#f4f7fb" media="(prefers-color-scheme: light)" />
+    <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="black-translucent"
+      media="(prefers-color-scheme: dark)"
+    />
+    <meta
+      name="apple-mobile-web-app-status-bar-style"
+      content="default"
+      media="(prefers-color-scheme: light)"
+    />
+    <!-- v=7: Safari/Firefox → apple-touch + og:image; Chrome/Edge iOS → manifest icons. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=7" />
+    <link rel="apple-touch-icon" sizes="256x256" href="/ring-share-256.png?v=7" />
+    <link rel="apple-touch-icon-precomposed" href="/apple-touch-icon-precomposed.png?v=7" />
+    <link rel="icon" type="image/png" href="/favicon.png?v=7" />
+    <link rel="icon" type="image/png" sizes="180x180" href="/apple-touch-icon.png?v=7" />
+    <link rel="icon" type="image/png" sizes="256x256" href="/ring-share-256.png?v=7" />
+    <link rel="icon" type="image/png" sizes="512x512" href="/pwa-512x512.png?v=7" />
+    <link rel="shortcut icon" type="image/png" href="/ring-share-256.png?v=7" />
+    <meta property="og:image" content="/ring-share-256.png?v=7" />
+    <meta property="og:image:width" content="256" />
+    <meta property="og:image:height" content="256" />
+    <meta property="og:image:type" content="image/png" />
+    <meta name="twitter:image" content="/ring-share-256.png?v=7" />
+    <script src="/ring-boot.js"></script>
+    <script src="/ring-icons.js"></script>
+    <style>
+      #ring-markers {
+        display: none !important;
+      }
+      html[data-ring-view='standalone'] .ring-boot-coach,
+      html[data-ring-view='standalone'] .ring-boot-unavailable,
+      html[data-ring-view='coach'] .ring-boot-shell,
+      html[data-ring-view='coach'] .ring-boot-unavailable,
+      html[data-ring-view='browser'] .ring-boot-shell,
+      html[data-ring-view='browser'] .ring-boot-unavailable {
+        display: none !important;
+      }
+      html:not([data-ring-view]) .ring-boot-shell,
+      html:not([data-ring-view]) .ring-boot-coach,
+      html:not([data-ring-view]) .ring-boot-unavailable {
+        display: none !important;
+      }
+    </style>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">

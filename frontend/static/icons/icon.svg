@@ -1,13 +1,15 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Ring">
   <defs>
-    <!-- Navy tile: brighter at top, darker at bottom; mid stop matches former flat #0f1c2e -->
     <linearGradient id="ring-ios-tile" x1="0" y1="0" x2="0" y2="512" gradientUnits="userSpaceOnUse">
       <stop offset="0%" stop-color="#1c3550" />
       <stop offset="48%" stop-color="#0f1c2e" />
       <stop offset="100%" stop-color="#060c14" />
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="96" fill="url(#ring-ios-tile)" />
+  <!-- Full-bleed tile (no rounded rect): opaque corners so iOS share-sheet metadata
+       does not composite transparent edges onto white. iOS applies its own mask on
+       the home screen. -->
+  <rect width="512" height="512" fill="url(#ring-ios-tile)" />
   <path
     fill="#0f1c2e"
     stroke="#ffffff"

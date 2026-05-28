@@ -1,6 +1,7 @@
 import { sveltekit } from '@sveltejs/kit/vite';
 import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 import { defineConfig } from 'vite';
+import { ringAbsoluteIconUrls } from './vite-plugin-ring-icons';
 
 const RING_VERSION = process.env.RING_VERSION || 'dev';
 const RING_COMMIT = process.env.RING_COMMIT || 'unknown';
@@ -37,11 +38,12 @@ export default defineConfig({
     : undefined,
   plugins: [
     sveltekit(),
+    ringAbsoluteIconUrls(),
     SvelteKitPWA({
       strategies: 'generateSW',
       registerType: 'autoUpdate',
       injectRegister: false, // registered manually in +layout.svelte (SvelteKit prerender)
-      pwaAssets: { config: true }, // pwa-assets.config.ts → icons + iOS splash, injected into the manifest
+      pwaAssets: { config: true, overrideManifestIcons: false },
       manifest: {
         name: 'Ring',
         short_name: 'Ring',
@@ -51,6 +53,22 @@ export default defineConfig({
         display: 'standalone',
         theme_color: '#0f1c2e',
         background_color: '#0f1c2e',
+        // Chrome / Edge on iOS read manifest icons for share-sheet previews (Safari
+        // uses apple-touch-icon). Largest full-bleed icons first; 64×64 last; maskable
+        // last so Chromium does not pick a tiny or safe-zone icon for link previews.
+        icons: [
+          { src: 'ring-share-256.png', sizes: '256x256', type: 'image/png', purpose: 'any' },
+          { src: 'apple-touch-icon.png', sizes: '180x180', type: 'image/png', purpose: 'any' },
+          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png', purpose: 'any' },
+          {
+            src: 'maskable-icon-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'maskable',
+          },
+        ],
       },
       workbox: {
         // Precache the prerendered shell + immutable client assets (offline, SC-002).

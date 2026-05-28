@@ -19,7 +19,7 @@
 
 ## User Scenarios & Testing *(mandatory)*
 
-Ring is a mobile-only, install-first messenger. Before any messaging feature lands, the app must behave like a real installed app: launchable from the home screen, loading instantly (even offline), and guiding people — especially on iOS, where browsers offer no automatic install button — through getting it onto their home screen. This feature is the onboarding front door.
+Ring is a mobile-first, install-first messenger — installable on any browser that supports it, including desktop Chrome/Edge. Before any messaging feature lands, the app must behave like a real installed app: launchable from the home screen (or dock), loading instantly (even offline), and guiding people — especially on iOS, where browsers offer no automatic install button — through getting it installed. This feature is the onboarding front door.
 
 ### User Story 1 - Installable, fast-loading app shell (Priority: P1)
 
@@ -73,8 +73,8 @@ On first launch the app asks the browser to persist its storage so cached assets
 
 ### Edge Cases
 
-- **Already installed / standalone**: When the app is launched in standalone (installed) mode, A2HS coaching and install prompts MUST be suppressed.
-- **Unsupported / non-installable browser**: When service workers or installation are not supported, the app MUST render a clear "install on a supported mobile browser" message rather than a broken or dead-end coaching step. (Because usage is install-gated, such browsers cannot reach normal functionality — this is expected, not a failure.)
+- **Already installed / standalone**: When the app is launched in standalone (installed) mode, A2HS coaching and install prompts MUST be suppressed. When the app is already installed but opened in a regular browser tab (no install prompt fires), the fallback notice MUST point the user to open the installed app rather than implying Ring cannot be installed.
+- **Unsupported / non-installable browser**: When service workers or installation are not supported, the app MUST render a clear "install on a supported browser" message rather than a broken or dead-end coaching step. (Because usage is install-gated, such browsers cannot reach normal functionality — this is expected, not a failure.)
 - **Install prompt unavailable but not iOS**: A browser that neither fires a native install prompt nor is iOS Safari MUST be handled gracefully (no misleading iOS instructions; fall back to a generic "use your browser menu to install" note or suppress coaching).
 - **Notification permission denied or already decided**: If permission was previously granted or denied, the app MUST NOT re-prompt; a denial MUST NOT block onboarding completion.
 - **Persistent storage denied**: A denied persistence request MUST be handled silently (the app keeps working; durability is best-effort).
@@ -96,7 +96,7 @@ On first launch the app asks the browser to persist its storage so cached assets
 - **FR-008**: The app MUST detect the iOS major/minor version and, for iOS older than 16.4, display a clear warning that push notifications are unavailable and will fall back to foreground checking.
 - **FR-009**: The app MUST NOT show the version-gate warning to visitors on iOS 16.4+ or on non-iOS platforms.
 - **FR-010**: When the app is running in standalone (installed) mode, it MUST suppress A2HS coaching and install prompts.
-- **FR-011**: On browsers that cannot install the app or lack service-worker support, the app MUST present a clear explanation that Ring must be installed on a supported mobile browser, rather than a broken or dead-end coaching step.
+- **FR-011**: On browsers that cannot install the app or lack service-worker support, the app MUST present a clear explanation that Ring must be installed on a supported browser, rather than a broken or dead-end coaching step.
 - **FR-012**: The app MUST remember onboarding state locally (e.g., whether the install step was reached, whether notification permission has been decided) so it does not re-prompt for an already-decided permission. Because usage is gated on installation, the coached install flow is shown on every pre-install launch — there is no dismiss-and-use-in-browser path.
 - **FR-013**: The feature MUST NOT change backend behavior beyond serving the new static PWA assets (manifest, service worker, icons) through the existing embedded file server; the `/healthz`, `/api/*`, and `/ws` contracts from feature 001 MUST remain unchanged.
 - **FR-014**: The PWA static assets (manifest, service worker, icons) MUST be served from the same single embedded distribution as the rest of the frontend, with no additional runtime service.
@@ -120,13 +120,13 @@ On first launch the app asks the browser to persist its storage so cached assets
 - **SC-004**: Notification permission is requested in 0 cases before the install step, and in 0 cases on push-incapable platforms (e.g. iOS <16.4).
 - **SC-005**: The coached A2HS path renders correctly for the iOS Safari case and the native-install-prompt case, verified by automated tests using simulated user agents on every change.
 - **SC-006**: Persistent storage is requested on 100% of first launches, and the app remains fully functional in 100% of cases where the request is denied.
-- **SC-007**: On browsers that cannot install Ring, a clear "install on a supported mobile browser" message is shown in 100% of cases, with no broken or dead-end onboarding step.
+- **SC-007**: On browsers that cannot install Ring, a clear "install on a supported browser" message is shown in 100% of cases, with no broken or dead-end onboarding step.
 - **SC-008**: A pre-install (browser-tab) session exposes normal app functionality in 0 cases — usage is reached only after the app is launched in standalone mode.
 - **SC-009**: The app icons (all required sizes, including maskable) and the iOS launch/splash image set are generated from the single source SVG and present at every required size, verified in the build/tests.
 
 ## Assumptions
 
-- **Mobile-only scope**: Per the project's mobile-only constraint, the coached A2HS flow targets mobile browsers — iOS Safari (manual coaching) and Chromium-based mobile browsers (native install prompt). Browsers that cannot install (incl. desktop) are not a target and receive the "install on a supported mobile browser" message rather than a usable in-browser app.
+- **Install scope**: Ring is mobile-first but installable anywhere the browser supports it — iOS Safari (manual A2HS coaching) and any Chromium browser that fires a native install prompt (Android **and** desktop Chrome/Edge). Browsers with no install path (e.g. desktop Safari/Firefox) receive a clear "install on a supported browser" message rather than a usable in-browser app — usage is still gated on installation.
 - **"Other browsers if it actually matters"** resolves to: browsers that fire a native install prompt are handled via that prompt; only iOS Safari needs bespoke manual coaching. No other per-browser bespoke flows are built.
 - **Install-first gating**: Normal app functionality is gated behind installation — until launched in standalone mode the app shows only the coached install flow. There is no dismissible in-browser usage path (per 2026-05-28 clarification).
 - **Notification permission scope**: This feature owns only the *timing and platform-gating* of the notification-permission request (after install, push-capable platforms only). Actual push registration and delivery are out of scope and belong to the later web-push feature (ROADMAP 005).

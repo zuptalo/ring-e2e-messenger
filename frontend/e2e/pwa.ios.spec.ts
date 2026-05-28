@@ -26,6 +26,21 @@ test.describe('Coached install-first onboarding — iOS (US2)', () => {
   });
 });
 
+const UA_IOS_CHROME_164 =
+  'Mozilla/5.0 (iPhone; CPU iPhone OS 16_4 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/110.0.0.0 Mobile/15E148 Safari/604.1';
+
+test.describe('Coached install-first onboarding — iOS Chrome (US2)', () => {
+  test.use({ userAgent: UA_IOS_CHROME_164 });
+
+  test('iOS Chrome shows coached steps (not InstallUnavailable)', async ({ page }) => {
+    await page.goto('/');
+    await expect(page.getByTestId('install-coach')).toBeVisible();
+    await expect(page.getByTestId('install-unavailable')).toHaveCount(0);
+    await expect(page.getByTestId('ios-steps')).toContainText(/Share/i);
+    await expect(page.getByTestId('app-shell')).toHaveCount(0);
+  });
+});
+
 const UA_IOS_163 =
   'Mozilla/5.0 (iPhone; CPU iPhone OS 16_3 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.3 Mobile/15E148 Safari/604.1';
 const UA_IOS_164 =

@@ -44,17 +44,17 @@ test.describe('PWA app shell (US1)', () => {
 });
 
 test.describe('Coached install-first onboarding — Chromium (US2)', () => {
-  test('non-iOS browser with no install prompt shows the InstallUnavailable notice', async ({
+  test('a Chromium browser with no install prompt is treated as already installed', async ({
     page,
   }) => {
-    // Desktop Chrome, non-standalone, no captured beforeinstallprompt → the
-    // app must not dead-end on a coach it cannot honor (FR-011, SC-007).
+    // Desktop Chrome/Edge, non-standalone, no captured beforeinstallprompt:
+    // Chromium suppresses the event once installed, so after the grace window the
+    // app concludes it is already installed and points at the OS launcher rather
+    // than dead-ending on a coach it cannot honor (FR-011, SC-007).
     await page.goto('/');
-    await expect(page.getByTestId('install-unavailable')).toBeVisible();
-    await expect(page.getByTestId('install-unavailable')).toContainText(
-      /supported mobile browser/i,
-    );
-    // Install-first: the app shell is not exposed pre-install.
+    await expect(page.getByTestId('install-installed')).toBeVisible();
+    await expect(page.getByTestId('install-installed')).toContainText(/installed/i);
+    // Install-first: the app shell is not exposed in a browser tab.
     await expect(page.getByTestId('app-shell')).toHaveCount(0);
   });
 
@@ -62,9 +62,9 @@ test.describe('Coached install-first onboarding — Chromium (US2)', () => {
     page,
   }) => {
     await page.goto('/');
-    // The InstallUnavailable notice proves hydration ran and the
-    // beforeinstallprompt listener is attached; now synthesize the event.
-    await expect(page.getByTestId('install-unavailable')).toBeVisible();
+    // The installed-state view proves hydration ran and the beforeinstallprompt
+    // listener is attached; now synthesize the event to drive the native prompt.
+    await expect(page.getByTestId('install-installed')).toBeVisible();
     await page.evaluate(() => {
       const e = new Event('beforeinstallprompt') as Event & {
         prompt: () => Promise<void>;
@@ -86,14 +86,33 @@ test.describe('Coached install-first onboarding — Chromium (US2)', () => {
   });
 });
 
+const UA_DESKTOP_FIREFOX =
+  'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0';
+
+test.describe('Install fallback on a non-installable browser — Firefox UA (US2)', () => {
+  test.use({ userAgent: UA_DESKTOP_FIREFOX });
+
+  test('a non-Chromium desktop browser shows the install fallback notice', async ({ page }) => {
+    // No beforeinstallprompt and not Chromium ⇒ Ring genuinely cannot install
+    // here (FR-011, SC-007): show guidance toward a supported browser, not the
+    // "already installed" state and not a dead-end coach.
+    await page.goto('/');
+    await expect(page.getByTestId('install-unavailable')).toBeVisible();
+    await expect(page.getByTestId('install-unavailable')).toContainText(/Chrome or Edge/i);
+    await expect(page.getByTestId('install-installed')).toHaveCount(0);
+    await expect(page.getByTestId('app-shell')).toHaveCount(0);
+  });
+});
+
 test.describe('Generated icon + iOS splash assets (SC-009)', () => {
   test('the manifest advertises the full icon set including a maskable icon', async ({
     request,
   }) => {
     const manifest = await (await request.get('/manifest.webmanifest')).json();
     const sizes: string[] = manifest.icons.map((i: { sizes: string }) => i.sizes);
-    // The minimal-2023 set: 64, 192, 512 + a 512 maskable — all from icon.svg.
-    expect(sizes).toEqual(expect.arrayContaining(['64x64', '192x192', '512x512']));
+    expect(sizes).toEqual(expect.arrayContaining(['256x256', '180x180', '192x192', '512x512']));
+    // Chrome/Edge iOS share previews use manifest icons — largest full-bleed first.
+    expect(manifest.icons[0].src).toBe('ring-share-256.png');
     const maskable = manifest.icons.filter((i: { purpose?: string }) =>
       i.purpose?.includes('maskable'),
     );
@@ -111,9 +130,13 @@ test.describe('Generated icon + iOS splash assets (SC-009)', () => {
     request,
   }) => {
     await page.goto('/');
-    const touchIcon = await page.locator('link[rel="apple-touch-icon"]').getAttribute('href');
-    expect(touchIcon).toBeTruthy();
-    expect((await request.get(touchIcon!)).status()).toBe(200);
+    expect((await request.get('/apple-touch-icon.png')).status()).toBe(200);
+    expect((await request.get('/favicon.png')).status()).toBe(200);
+    expect((await request.get('/ring-share-256.png')).status()).toBe(200);
+    const touchIcon = page.locator('link[rel="apple-touch-icon"]').first();
+    const href = await touchIcon.getAttribute('href');
+    expect(href).toBeTruthy();
+    expect((await request.get(href!.split('?')[0])).status()).toBe(200);
 
     // The generated iOS launch-image set (portrait + landscape per device size).
     const splashHrefs = await page

@@ -5,6 +5,7 @@
 export type OnboardingEvent =
   | 'coach.shown'
   | 'install.unavailable'
+  | 'install.detected'
   | 'install.completed'
   | 'notif.permission'
   | 'storage.persist'

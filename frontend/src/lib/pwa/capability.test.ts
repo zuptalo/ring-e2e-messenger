@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { detectCapability } from './capability';
+import { detectCapability, getCapabilityProfile } from './capability';
 
 const UA = {
   iosSafari164:
@@ -18,6 +18,12 @@ const UA = {
     'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Mobile Safari/537.36',
   desktopChrome:
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36',
+  desktopEdge:
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edg/110.0.0.0',
+  desktopSafari:
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+  desktopFirefox:
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:121.0) Gecko/20100101 Firefox/121.0',
 };
 
 describe('detectCapability', () => {
@@ -115,5 +121,27 @@ describe('detectCapability', () => {
     });
     expect(p.isStandalone).toBe(true);
     expect(p.installPromptAvailable).toBe(true);
+  });
+
+  // The standalone override lets +page.svelte recompute the profile when the
+  // window flips to standalone (desktop install reparents the tab into an app
+  // window) without re-reading the live media query.
+  it('getCapabilityProfile honours the standalone override', () => {
+    expect(getCapabilityProfile(false, true).isStandalone).toBe(true);
+    expect(getCapabilityProfile(false, false).isStandalone).toBe(false);
+  });
+
+  // isChromium drives the "already installed" heuristic (Chromium + no prompt +
+  // not standalone ⇒ installed). Safari/Firefox never fire beforeinstallprompt,
+  // so they stay in the install-fallback view, not the installed state.
+  it('isChromium distinguishes Chromium engines from Safari/Firefox/iOS', () => {
+    const chromium = (ua: string) =>
+      detectCapability({ userAgent: ua, maxTouchPoints: 0, standalone: false }).isChromium;
+    expect(chromium(UA.desktopChrome)).toBe(true);
+    expect(chromium(UA.desktopEdge)).toBe(true);
+    expect(chromium(UA.desktopSafari)).toBe(false);
+    expect(chromium(UA.desktopFirefox)).toBe(false);
+    // iOS Chrome (CriOS) is gated out: it is handled as the iOS coach path.
+    expect(chromium(UA.iosChrome164)).toBe(false);
   });
 });

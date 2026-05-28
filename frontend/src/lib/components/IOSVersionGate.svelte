@@ -19,8 +19,9 @@
     margin: 1rem 2rem 0;
     padding: 0.75rem 1rem;
     border-radius: 0.5rem;
-    background: #fff4e5;
-    color: #663c00;
+    background: var(--ring-warn-bg);
+    color: var(--ring-warn-fg);
+    border: 1px solid var(--ring-warn-border);
     line-height: 1.5;
   }
 </style>

@@ -15,6 +15,12 @@ export interface IOSVersion {
 export interface CapabilityProfile {
   platform: Platform;
   isIOSSafari: boolean;
+  /** Chromium-family engine (Chrome/Edge/Brave/Opera/…). Drives the "already
+   *  installed" heuristic: a Chromium browser that fires no beforeinstallprompt
+   *  while not in standalone has almost certainly already installed the app
+   *  (Chromium suppresses the event post-install), whereas Safari/Firefox never
+   *  fire it. Not install eligibility — that is the captured event. */
+  isChromium: boolean;
   iosVersion: IOSVersion | null;
   isStandalone: boolean;
   installPromptAvailable: boolean;
@@ -28,9 +34,9 @@ export interface CapabilityInput {
   installPromptAvailable?: boolean;
 }
 
-// iOS Safari running another browser's engine is impossible (all iOS browsers
-// are WebKit), but non-Safari iOS browsers cannot trigger Add-to-Home-Screen,
-// so they are not treated as iOS Safari for coaching purposes.
+// All iOS browsers use WebKit; non-Safari UAs (CriOS, FxiOS, …) set isIOSSafari
+// false. Coaching itself is gated on platform === 'ios' — any iOS browser can
+// Add-to-Home-Screen and launch standalone, so all of them get the same steps.
 const NON_SAFARI_IOS = /CriOS|FxiOS|EdgiOS|OPiOS|mercury/i;
 
 export function detectCapability(input: CapabilityInput): CapabilityProfile {
@@ -44,6 +50,11 @@ export function detectCapability(input: CapabilityInput): CapabilityProfile {
   const platform: Platform = isIOSDevice ? 'ios' : /Android/.test(ua) ? 'android' : 'other';
 
   const isIOSSafari = isIOSDevice && !NON_SAFARI_IOS.test(ua);
+
+  // Chromium-family engine. The "Chrome"/"Chromium" token also appears in
+  // Edge/Brave/Opera/Samsung UAs; iOS Chrome (CriOS) does NOT carry it and is
+  // gated out by platform === 'ios' anyway.
+  const isChromium = !isIOSDevice && /Chrome|Chromium/.test(ua);
 
   let iosVersion: IOSVersion | null = null;
   if (isIOSDevice) {
@@ -65,6 +76,7 @@ export function detectCapability(input: CapabilityInput): CapabilityProfile {
   return {
     platform,
     isIOSSafari,
+    isChromium,
     iosVersion,
     isStandalone: input.standalone,
     installPromptAvailable: input.installPromptAvailable ?? false,
@@ -74,10 +86,17 @@ export function detectCapability(input: CapabilityInput): CapabilityProfile {
 
 // Reads the live browser environment. `installPromptAvailable` is supplied by
 // the caller (it depends on whether a `beforeinstallprompt` event was captured).
-export function getCapabilityProfile(installPromptAvailable = false): CapabilityProfile {
+// `standaloneOverride` lets a reactive caller drive recomputation when the
+// display-mode flips (desktop install reparents the tab into an app window
+// without a reload); when omitted the live media query is read.
+export function getCapabilityProfile(
+  installPromptAvailable = false,
+  standaloneOverride?: boolean,
+): CapabilityProfile {
   const standalone =
-    window.matchMedia?.('(display-mode: standalone)').matches === true ||
-    (navigator as Navigator & { standalone?: boolean }).standalone === true;
+    standaloneOverride ??
+    (window.matchMedia?.('(display-mode: standalone)').matches === true ||
+      (navigator as Navigator & { standalone?: boolean }).standalone === true);
 
   return detectCapability({
     userAgent: navigator.userAgent,
