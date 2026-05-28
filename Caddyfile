@@ -20,6 +20,11 @@
 }
 
 {$RING_FQDN} {
+    # No explicit `tls` directive: Caddy's automatic HTTPS decides issuance.
+    # With CADDY_GLOBAL_OPTIONS=local_certs (dev default) it serves an
+    # internal-CA cert; with it empty (real prod) Caddy ACMEs a publicly
+    # trusted cert from Let's Encrypt for {$RING_FQDN} on first request — no
+    # config change needed to go from dev to prod, just the env var. (T036)
     encode zstd gzip
     reverse_proxy {$RING_UPSTREAM:host.docker.internal:8080}
 

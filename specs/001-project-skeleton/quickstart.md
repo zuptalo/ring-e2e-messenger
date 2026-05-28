@@ -125,9 +125,18 @@ On a host with a public DNS A record pointing at it and ports 80/443 open:
 git clone https://github.com/zuptalo/ring-e2ee-messenger.git ring
 cd ring
 cp .env.example .env
-$EDITOR .env                # set RING_FQDN to your real domain; leave RING_UPSTREAM commented
+$EDITOR .env                # set RING_FQDN to your real domain AND set
+                            # CADDY_GLOBAL_OPTIONS= (empty) so Caddy ACMEs a
+                            # publicly trusted cert instead of its internal CA
 make image
 make up
 ```
 
-Caddy will request an ACME certificate for your FQDN on first request. Within ~60 seconds (SC-004), `curl https://<your-fqdn>/healthz` MUST return `{"status":"ok"}` with a publicly trusted certificate. If it does not, `docker compose logs proxy` will show the ACME failure (most commonly: DNS not yet propagated, or ports 80/443 unreachable from the internet).
+Caddy will request an ACME certificate for your FQDN on first request. Within ~60 seconds (SC-004), `curl https://<your-fqdn>/healthz` MUST return `{"status":"ok"}` with a publicly trusted certificate. Verify it from a remote client (your laptop, not the host) with this poll loop, which demonstrates the 60-second SLA from the moment `make up` returns:
+
+```bash
+export RING_FQDN=your.domain          # the FQDN you set in .env
+for i in $(seq 1 12); do curl -sf https://$RING_FQDN/healthz && break; sleep 5; done
+```
+
+**Troubleshooting**: If this loop times out, run `docker compose logs proxy` on the host — ACME failures are logged there. The usual causes are DNS not yet propagated, ports 80/443 unreachable from the internet, or `CADDY_GLOBAL_OPTIONS` still set to `local_certs` (which keeps Caddy on its internal CA and skips ACME entirely).
