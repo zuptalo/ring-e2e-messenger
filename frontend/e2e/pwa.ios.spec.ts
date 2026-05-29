@@ -23,9 +23,10 @@ test.describe('Coached install-first onboarding — iOS (US2)', () => {
     await expect(page.getByTestId('app-shell')).toBeVisible();
     await expect(page.getByTestId('app-shell')).toContainText('skeleton OK');
     await expect(page.getByTestId('install-coach')).toHaveCount(0);
-    // The launch splash appears then auto-dismisses (must not trap the shell).
+    // The launch splash covers on launch then auto-dismisses (must not trap the
+    // shell). It is a persistent privacy shield, so it stays in the DOM hidden.
     await expect(page.getByTestId('splash')).toBeVisible();
-    await expect(page.getByTestId('splash')).toHaveCount(0, { timeout: 6000 });
+    await expect(page.getByTestId('splash')).toBeHidden({ timeout: 8000 });
   });
 });
 

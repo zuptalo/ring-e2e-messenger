@@ -2,6 +2,7 @@
   import { onMount } from 'svelte';
   import '$lib/theme.css';
   import { initInstallCapture } from '$lib/pwa/install';
+  import { VERSION } from '$lib/version';
   // Generated PWA head links (apple-touch-icon + the iOS apple-touch-startup-image
   // splash set). Sourced from the build's pwaAssets config so the hrefs match the
   // emitted PNGs exactly (SC-009). Rendered into <svelte:head> so they land in the
@@ -21,6 +22,10 @@
   );
 
   onMount(() => {
+    // Fill the launch-splash version (the shield lives in app.html, before hydration).
+    const v = document.getElementById('ring-shield-version');
+    if (v) v.textContent = VERSION;
+
     // Capture beforeinstallprompt as early as possible (US2) so the install-first
     // gate can offer a native Install button when the browser supports it.
     initInstallCapture();

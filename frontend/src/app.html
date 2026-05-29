@@ -53,10 +53,117 @@
       html:not([data-ring-view]) .ring-boot-unavailable {
         display: none !important;
       }
+
+      /* Launch splash + privacy shield. Brand colours are hardcoded (theme.css
+         vars are not applied until hydration). Covers the standalone shell from
+         first paint (cold rule below) so app content never flashes first, and
+         re-covers on blur/hidden for the iOS app-switcher snapshot. */
+      #ring-shield {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 0.65rem;
+        background: #0f1c2e;
+        color: #e8eef4;
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transition:
+          opacity 0.45s ease,
+          visibility 0.45s ease;
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+      }
+      @media (prefers-color-scheme: light) {
+        #ring-shield {
+          background: #f4f7fb;
+          color: #0f1c2e;
+        }
+      }
+      /* Cold-launch cover in standalone, before the controller script runs. */
+      html[data-ring-view='standalone']:not([data-shield-ready]) #ring-shield {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transition: none;
+      }
+      /* Controller-driven states (launch hold + privacy cover). */
+      #ring-shield.show {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+      }
+      #ring-shield.show.instant {
+        transition: none;
+      }
+      #ring-shield img {
+        width: 6rem;
+        height: 6rem;
+        border-radius: 1.35rem;
+      }
+      #ring-shield .ring-shield-name {
+        font-size: 1.75rem;
+        font-weight: 700;
+      }
+      #ring-shield .ring-shield-version {
+        font-size: 0.85rem;
+        opacity: 0.7;
+      }
     </style>
     %sveltekit.head%
   </head>
   <body data-sveltekit-preload-data="hover">
+    <div id="ring-shield" data-testid="splash" aria-hidden="true">
+      <img src="/apple-touch-icon.png" alt="" width="96" height="96" />
+      <div class="ring-shield-name">Ring</div>
+      <div class="ring-shield-version" id="ring-shield-version"></div>
+    </div>
     <div style="display: contents">%sveltekit.body%</div>
+    <script>
+      // Launch-splash + privacy-shield controller. Runs after the body parses;
+      // until then the cold-cover CSS rule keeps the standalone shell covered.
+      (function () {
+        var html = document.documentElement;
+        var shield = document.getElementById('ring-shield');
+        if (!shield) return;
+        var standalone =
+          (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+          window.navigator.standalone === true;
+        function show(instant) {
+          shield.classList.add('show');
+          if (instant) shield.classList.add('instant');
+        }
+        function hide() {
+          shield.classList.remove('show', 'instant');
+        }
+        // Hand off from the cold-cover CSS rule to the class-based states.
+        html.setAttribute('data-shield-ready', '');
+        if (!standalone) {
+          hide();
+          return;
+        }
+        // Launch splash: keep covering, then fade out after a ~2.5–3.5s hold.
+        show(false);
+        setTimeout(hide, 2500 + Math.random() * 1000);
+        // Privacy: re-cover whenever the app is backgrounded or loses focus
+        // (e.g. the iOS app switcher) so the snapshot does not reveal content.
+        var cover = function () {
+          show(true);
+        };
+        document.addEventListener('visibilitychange', function () {
+          if (document.hidden) cover();
+          else hide();
+        });
+        window.addEventListener('blur', cover);
+        window.addEventListener('focus', hide);
+        window.addEventListener('pagehide', cover);
+      })();
+    </script>
   </body>
 </html>
