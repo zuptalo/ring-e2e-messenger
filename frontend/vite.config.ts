@@ -56,14 +56,17 @@ export default defineConfig({
         // Chrome / Edge on iOS read manifest icons for share-sheet previews (Safari
         // uses apple-touch-icon). Largest full-bleed icons first; 64×64 last; maskable
         // last so Chromium does not pick a tiny or safe-zone icon for link previews.
+        // ring-share-256 + apple-touch-icon ship at the web root; the pwa-*/maskable
+        // sizes ship under /icons/ (the committed icon set synced by icons:generate)
+        // so every advertised icon resolves in a clean build (no generation step).
         icons: [
           { src: 'ring-share-256.png', sizes: '256x256', type: 'image/png', purpose: 'any' },
           { src: 'apple-touch-icon.png', sizes: '180x180', type: 'image/png', purpose: 'any' },
-          { src: 'pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-          { src: 'pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
-          { src: 'pwa-64x64.png', sizes: '64x64', type: 'image/png', purpose: 'any' },
+          { src: 'icons/pwa-512x512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+          { src: 'icons/pwa-192x192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+          { src: 'icons/pwa-64x64.png', sizes: '64x64', type: 'image/png', purpose: 'any' },
           {
-            src: 'maskable-icon-512x512.png',
+            src: 'icons/maskable-icon-512x512.png',
             sizes: '512x512',
             type: 'image/png',
             purpose: 'maskable',
