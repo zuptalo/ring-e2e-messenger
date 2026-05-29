@@ -50,29 +50,11 @@ export default defineConfig({
       sizes: [180, 256],
       ...fullBleed,
     },
-    appleSplashScreens: {
-      padding: 0.3,
-      resizeOptions: { fit: 'cover' as const, background: BRAND_BG },
-      sizes: [
-        { width: 320, height: 568, scaleFactor: 2 },
-        { width: 375, height: 667, scaleFactor: 2 },
-        { width: 414, height: 736, scaleFactor: 3 },
-        { width: 375, height: 812, scaleFactor: 3 },
-        { width: 414, height: 896, scaleFactor: 2 },
-        { width: 414, height: 896, scaleFactor: 3 },
-        { width: 390, height: 844, scaleFactor: 3 },
-        { width: 393, height: 852, scaleFactor: 3 },
-        { width: 428, height: 926, scaleFactor: 3 },
-        { width: 430, height: 932, scaleFactor: 3 },
-        { width: 768, height: 1024, scaleFactor: 2 },
-        { width: 834, height: 1194, scaleFactor: 2 },
-        { width: 1024, height: 1366, scaleFactor: 2 },
-      ],
-      linkMediaOptions: { log: false, addMediaScreen: true, basePath: '/', xhtml: false },
-      png: { compressionLevel: 9, quality: 60 },
-      name: (landscape, size) =>
-        `apple-splash-${landscape ? 'landscape' : 'portrait'}-${size.width}x${size.height}.png`,
-    },
+    // No appleSplashScreens: the native iOS launch image (apple-touch-startup-
+    // image) cannot carry dynamic text and conflicted visually with the in-app
+    // launch splash (#ring-shield in app.html). iOS uses the manifest
+    // background_color for the launch background instead, then the HTML shield
+    // (logo + version) fades in over the same colour.
   },
   images: ['static/icons/icon.svg'],
 });

@@ -12,8 +12,9 @@ All assets are reachable both directly on the Go listener and through the Caddy 
 | `/sw.js` | GET | 200 | a JavaScript type (`text/javascript`) | Service worker. Served from root so its default scope is `/`; no `Service-Worker-Allowed` header required. |
 | `/workbox-*.js` | GET | 200 | a JavaScript type | Workbox runtime chunk(s) emitted alongside the SW (hashed filename). |
 | `/icons/*` | GET | 200 | `image/png` or `image/svg+xml` | Generated icon set incl. ≥1 maskable icon; plus the source `icon.svg`. |
-| iOS splash images (generated paths) | GET | 200 | `image/png` | `apple-touch-startup-image` set; referenced from `app.html` via media-query `<link>` tags. |
 | `/apple-touch-icon.png` (or referenced equivalent) | GET | 200 | `image/png` | iOS home-screen icon. |
+
+No native iOS launch image (`apple-touch-startup-image`) is served: it cannot carry the version and visually conflicted with the in-app launch splash. iOS launches on the manifest `background_color`, then the `#ring-shield` overlay (logo + version, in `app.html`) provides the branded splash. See `onboarding-ui.md` view 1.
 
 ## Document-head references (in `/` initial HTML)
 
@@ -21,11 +22,11 @@ The prerendered `/` HTML MUST include, without requiring JS execution:
 - `<link rel="manifest" href="/manifest.webmanifest">`
 - `<meta name="theme-color" content="…">`
 - `<link rel="apple-touch-icon" href="…">`
-- the generated `apple-touch-startup-image` `<link>` set (iOS splash).
+- the `#ring-shield` launch/privacy overlay markup + its cold-cover styles (no `apple-touch-startup-image` set).
 
 ## Invariants (unchanged from feature 001)
 
-- `GET /` still returns the embedded SvelteKit shell (now also containing the manifest/splash head tags). The 001 markers (`Ring`, `skeleton OK`, version, commit) remain present.
+- `GET /` still returns the embedded SvelteKit shell (now also containing the manifest + icon head tags). The 001 markers (`Ring`, `skeleton OK`, version, commit) remain present.
 - `GET /healthz`, `GET /api/*` (JSON 404 / degraded), and `GET /ws` (426) are **unchanged**. This feature MUST NOT alter their behavior.
 - Assets are served from the single embedded distribution; no additional runtime service is introduced.
 

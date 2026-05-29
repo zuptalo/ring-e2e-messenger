@@ -14,7 +14,7 @@
 
 - Q: When should Ring request the OS notification-permission prompt during onboarding? → A: After the install step, but only on push-capable platforms (iOS ≥16.4 or browsers that support web push); skip the prompt where push is unavailable.
 - Q: Can a first-time visitor dismiss the A2HS coaching and keep using Ring in the browser? → A: No — install-first. Normal app usage is gated until the app is installed and launched in standalone mode.
-- Q: Are production app icons available, or should 002 ship placeholders? → A: A source icon SVG is provided (`frontend/public/icons/icon.svg`); generate all required icon sizes and iOS splash screens from it.
+- Q: Are production app icons available, or should 002 ship placeholders? → A: A source icon SVG is provided (`frontend/public/icons/icon.svg`); generate all required icon sizes from it. (The launch splash is an in-app overlay, not a generated native iOS splash image set — see FR-017.)
 - Q: After a visitor dismisses the install coaching, when may it re-surface? → A: Moot under install-first — the coached install flow persists until the app is installed; there is no dismiss-and-use-in-browser path.
 
 ## User Scenarios & Testing *(mandatory)*
@@ -102,7 +102,7 @@ On first launch the app asks the browser to persist its storage so cached assets
 - **FR-014**: The PWA static assets (manifest, service worker, icons) MUST be served from the same single embedded distribution as the rest of the frontend, with no additional runtime service.
 - **FR-015**: The feature MUST include an automated frontend integration test that loads the app and verifies: the manifest is served at `/manifest.webmanifest`, the service worker controls the page after registration, and the iOS detection + coached A2HS path renders under a simulated iOS user agent.
 - **FR-016**: Until the app is running in standalone (installed) mode, it MUST NOT expose normal application functionality; a pre-install session MUST present only the coached install flow (plus the iOS version-gate warning where applicable).
-- **FR-017**: The build MUST generate, from the single source icon SVG, all icon sizes required for installability (including a maskable icon) and the iOS home-screen / launch ("splash") image set, and reference them from the manifest and/or document head.
+- **FR-017**: The build MUST generate, from the single source icon SVG, all icon sizes required for installability (including a maskable icon) and the iOS home-screen icon, and reference them from the manifest and/or document head. The launch ("splash") experience MUST be provided by an in-app overlay (logo + version) over the manifest `background_color`; a native iOS `apple-touch-startup-image` set is NOT used (it cannot carry the version and conflicts visually with the in-app splash).
 - **FR-018**: Each user-visible onboarding action (coaching shown, install completed, notification-permission decided/skipped, persistent-storage requested, version-gate shown) MUST emit a structured log record carrying a stable event name and outcome (per constitution Principle III). Backend ingestion of these records is out of scope for this feature (→ feature 009).
 
 ### Key Entities *(include if feature involves data)*
@@ -122,7 +122,7 @@ On first launch the app asks the browser to persist its storage so cached assets
 - **SC-006**: Persistent storage is requested on 100% of first launches, and the app remains fully functional in 100% of cases where the request is denied.
 - **SC-007**: On browsers that cannot install Ring, a clear "install on a supported browser" message is shown in 100% of cases, with no broken or dead-end onboarding step.
 - **SC-008**: A pre-install (browser-tab) session exposes normal app functionality in 0 cases — usage is reached only after the app is launched in standalone mode.
-- **SC-009**: The app icons (all required sizes, including maskable) and the iOS launch/splash image set are generated from the single source SVG and present at every required size, verified in the build/tests.
+- **SC-009**: The app icons (all required sizes, including maskable) are generated from the single source SVG and present at every required size, verified in the build/tests. The launch splash is the in-app `#ring-shield` overlay over the manifest `background_color` (no native `apple-touch-startup-image` set).
 
 ## Assumptions
 
@@ -131,7 +131,7 @@ On first launch the app asks the browser to persist its storage so cached assets
 - **Install-first gating**: Normal app functionality is gated behind installation — until launched in standalone mode the app shows only the coached install flow. There is no dismissible in-browser usage path (per 2026-05-28 clarification).
 - **Notification permission scope**: This feature owns only the *timing and platform-gating* of the notification-permission request (after install, push-capable platforms only). Actual push registration and delivery are out of scope and belong to the later web-push feature (ROADMAP 005).
 - **Foreground-poll fallback scope**: This feature only *warns* iOS <16.4 users about the degradation. The actual foreground-poll mechanism is implemented with the messaging/push features, not here.
-- **Source icon provided**: A single source icon SVG (`frontend/public/icons/icon.svg`) is the input; all install icon sizes (incl. maskable) and the iOS launch/splash image set are generated from it during the build.
+- **Source icon provided**: A single source icon SVG (`frontend/public/icons/icon.svg`) is the input; all install icon sizes (incl. maskable) and the iOS home-screen icon are generated from it during the build. The launch splash is an in-app overlay, not a generated native iOS splash image set.
 - **iOS 16.4 is the push threshold**: 16.4 is the first iOS version supporting web push for home-screen PWAs; it is treated as the cut-off for the degradation warning.
 - **Build/test tooling** (recorded for planning, not a user requirement): the PWA shell and service worker are expected to be produced by the SvelteKit/Vite toolchain with `vite-plugin-pwa` + Workbox, and the frontend integration test by Playwright (real iOS Safari driver where feasible, headless Chromium otherwise). These remain implementation choices for the plan phase.
 - **Builds on feature 001**: The embedded single-image distribution, the static file server, and the existing route contracts from feature 001 are reused unchanged.

@@ -125,7 +125,7 @@ test.describe('Generated icon + iOS splash assets (SC-009)', () => {
     }
   });
 
-  test('the apple-touch-icon and iOS apple-touch-startup-image splash set are served', async ({
+  test('the apple-touch-icon and favicons are served; no native iOS splash set', async ({
     page,
     request,
   }) => {
@@ -138,16 +138,9 @@ test.describe('Generated icon + iOS splash assets (SC-009)', () => {
     expect(href).toBeTruthy();
     expect((await request.get(href!.split('?')[0])).status()).toBe(200);
 
-    // The generated iOS launch-image set (portrait + landscape per device size).
-    const splashHrefs = await page
-      .locator('link[rel="apple-touch-startup-image"]')
-      .evaluateAll((els) => els.map((e) => e.getAttribute('href') ?? ''));
-    expect(splashHrefs.length).toBeGreaterThan(10);
-    // Spot-check that the referenced PNGs resolve (filenames must match the build).
-    for (const href of [splashHrefs[0], splashHrefs[splashHrefs.length - 1]]) {
-      const res = await request.get(href);
-      expect(res.status(), `splash ${href}`).toBe(200);
-      expect(res.headers()['content-type']).toContain('image/png');
-    }
+    // The native iOS launch image (apple-touch-startup-image) is intentionally
+    // not used — iOS launches on the manifest background_color and the in-app
+    // #ring-shield provides the branded splash (avoids a native-PNG → HTML jump).
+    await expect(page.locator('link[rel="apple-touch-startup-image"]')).toHaveCount(0);
   });
 });
