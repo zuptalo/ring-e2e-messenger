@@ -72,6 +72,9 @@
         opacity: 0;
         visibility: hidden;
         pointer-events: none;
+        /* Promote to its own layer so showing it on background is a cheap
+           compositor op (best chance of painting before the iOS snapshot). */
+        will-change: opacity;
         transition:
           opacity 0.45s ease,
           visibility 0.45s ease;
@@ -113,6 +116,10 @@
       }
       #ring-shield .ring-shield-version {
         font-size: 0.85rem;
+        /* Reserve the line so filling the version in after hydration does not
+           grow the centred column and shove the logo upward (no layout shift). */
+        min-height: 1.25rem;
+        line-height: 1.25rem;
         opacity: 0.7;
       }
     </style>
