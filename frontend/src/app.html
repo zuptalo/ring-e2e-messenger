@@ -62,11 +62,10 @@
         position: fixed;
         inset: 0;
         z-index: 2147483647;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        justify-content: center;
-        gap: 0.65rem;
+        /* The logo is centred via a transform on the <img> itself (below), not
+           flexbox, so it is positioned on the compositor layer and painted at
+           its final spot in the first frame — no layout-pass settle that would
+           make it appear low then snap up on a cold standalone launch. */
         background: #0f1c2e;
         color: #e8eef4;
         opacity: 0;
@@ -106,9 +105,39 @@
         transition: none;
       }
       #ring-shield img {
+        position: absolute;
+        top: 50%;
+        left: 50%;
         width: 6rem;
         height: 6rem;
         border-radius: 1.35rem;
+        transform: translate(-50%, -50%);
+        /* Start hidden and fade in after a short delay so the logo only appears
+           AFTER iOS has finished the cold-launch layout pass — the viewer never
+           sees it paint low and snap up to centre. The shield background still
+           covers from the first frame, so no app content flashes. */
+        opacity: 0;
+        animation: ring-logo-in 0.45s ease 0.5s forwards;
+      }
+      @keyframes ring-logo-in {
+        to {
+          opacity: 1;
+        }
+      }
+      /* Name + version hang below the centred logo (viewport centre + half the
+         6rem logo + a small gap) and fade in on the same delayed animation, so
+         the whole splash appears together once the launch layout has settled. */
+      #ring-shield .ring-shield-text {
+        position: absolute;
+        top: calc(50% + 3rem + 1rem);
+        left: 0;
+        right: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.35rem;
+        opacity: 0;
+        animation: ring-logo-in 0.45s ease 0.5s forwards;
       }
       #ring-shield .ring-shield-name {
         font-size: 1.75rem;
@@ -116,11 +145,18 @@
       }
       #ring-shield .ring-shield-version {
         font-size: 0.85rem;
-        /* Reserve the line so filling the version in after hydration does not
-           grow the centred column and shove the logo upward (no layout shift). */
+        /* Reserve the line height so filling the version in after hydration does
+           not shift the text block (the logo is unaffected either way). */
         min-height: 1.25rem;
         line-height: 1.25rem;
         opacity: 0.7;
+      }
+      @media (prefers-reduced-motion: reduce) {
+        /* Keep the delay (still hides the settle) but drop the fade motion. */
+        #ring-shield img,
+        #ring-shield .ring-shield-text {
+          animation-duration: 0.001s;
+        }
       }
     </style>
     %sveltekit.head%
@@ -128,8 +164,10 @@
   <body data-sveltekit-preload-data="hover">
     <div id="ring-shield" data-testid="splash" aria-hidden="true">
       <img src="/apple-touch-icon.png" alt="" width="96" height="96" />
-      <div class="ring-shield-name">Ring</div>
-      <div class="ring-shield-version" id="ring-shield-version"></div>
+      <div class="ring-shield-text">
+        <div class="ring-shield-name">Ring</div>
+        <div class="ring-shield-version" id="ring-shield-version"></div>
+      </div>
     </div>
     <div style="display: contents">%sveltekit.body%</div>
     <script>

@@ -36,11 +36,3 @@
 </script>
 
 {@render children()}
-
-<style>
-  :global(body) {
-    margin: 0;
-    background: var(--ring-bg);
-    color: var(--ring-fg);
-  }
-</style>

@@ -25,3 +25,9 @@
     --ring-warn-border: #e6c89a;
   }
 }
+
+body {
+  margin: 0;
+  background: var(--ring-bg);
+  color: var(--ring-fg);
+}
