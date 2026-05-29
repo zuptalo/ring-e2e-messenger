@@ -8,7 +8,7 @@ function ringPublicOrigin(): string | undefined {
 }
 
 const ICON_PATH =
-  /^\/(?:apple-touch-icon(?:-[\w-]+)?\.png|apple-touch-icon-precomposed\.png|ring-share-256\.png|favicon\.png|pwa-\d+x\d+\.png|favicon\.ico|maskable-icon-\d+x\d+\.png)/;
+  /^\/(?:icons\/)?(?:apple-touch-icon(?:-[\w-]+)?\.png|apple-touch-icon-precomposed\.png|ring-share-256\.png|favicon\.png|pwa-\d+x\d+\.png|favicon\.ico|maskable-icon-\d+x\d+\.png)/;
 
 /** Rewrite root-relative icon URLs to absolute when deploying behind a known public host. */
 export function ringAbsoluteIconUrls(): Plugin {
@@ -20,7 +20,7 @@ export function ringAbsoluteIconUrls(): Plugin {
       handler(html) {
         if (!origin) return html;
         return html.replace(
-          /(href|content)="(\/(?:apple-touch[^"]*|ring-share[^"]*|favicon[^"]*|pwa-[^"]*|maskable-icon[^"]*))"/g,
+          /(href|content)="(\/(?:icons\/)?(?:apple-touch[^"]*|ring-share[^"]*|favicon[^"]*|pwa-[^"]*|maskable-icon[^"]*))"/g,
           (match, attr, path) => {
             if (!ICON_PATH.test(path.split('?')[0])) return match;
             return `${attr}="${origin}${path}"`;

@@ -1,7 +1,12 @@
 #!/usr/bin/env node
-// Generator writes next to static/icons/icon.svg. Copy to static/ web root with
-// conventional filenames for iOS / Firefox / share-sheet metadata.
-import { copyFileSync, existsSync, readdirSync } from 'node:fs';
+// The committed icon set lives in static/icons/ (generated from icon.svg by
+// pwa-assets-generator). Everything that references icons points at /icons/…,
+// EXCEPT a few names that must sit at the web root because clients fetch them by
+// convention without reading the HTML: Safari/crawlers probe /apple-touch-icon.png,
+// browsers probe /favicon.png, and the share image is advertised at /ring-share-256.png
+// (manifest icons[0] + og:image). This mirrors just those three from static/icons/
+// to the web root; all three are committed, so a clean build needs no generation step.
+import { copyFileSync, existsSync } from 'node:fs';
 
 const gen = 'static/icons';
 
@@ -12,8 +17,8 @@ if (!existsSync(gen)) {
 
 const aliases = [
   ['apple-touch-icon-180x180.png', 'apple-touch-icon.png'],
-  ['apple-touch-icon-180x180.png', 'apple-touch-icon-precomposed.png'],
   ['apple-touch-icon-256x256.png', 'ring-share-256.png'],
+  ['favicon.png', 'favicon.png'],
 ];
 
 for (const [srcName, destName] of aliases) {
@@ -25,14 +30,3 @@ for (const [srcName, destName] of aliases) {
   copyFileSync(src, `static/${destName}`);
   console.log(`sync-icons: static/${destName}`);
 }
-
-let count = 0;
-for (const name of readdirSync(gen)) {
-  if (!/\.(png|ico)$/i.test(name)) continue;
-  const dest = `static/${name}`;
-  if (existsSync(dest)) continue; // keep alias targets above
-  copyFileSync(`${gen}/${name}`, dest);
-  count++;
-}
-
-console.log(`sync-icons: copied ${count} additional assets to static/`);
