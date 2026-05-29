@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://ring.localtest.me/specs/002/manifest.schema.json",
+  "title": "Ring Web App Manifest (feature 002)",
+  "description": "Shape the generated /manifest.webmanifest MUST satisfy for an install-first standalone PWA. The integration test validates the served manifest against this schema.",
+  "type": "object",
+  "required": [
+    "name",
+    "short_name",
+    "start_url",
+    "scope",
+    "display",
+    "theme_color",
+    "background_color",
+    "icons"
+  ],
+  "properties": {
+    "name": { "const": "Ring" },
+    "short_name": { "const": "Ring" },
+    "start_url": { "type": "string", "const": "/" },
+    "scope": { "type": "string", "const": "/" },
+    "display": {
+      "description": "MUST be standalone so the installed app launches without browser chrome (install-first).",
+      "const": "standalone"
+    },
+    "theme_color": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" },
+    "background_color": { "type": "string", "pattern": "^#([0-9a-fA-F]{3}|[0-9a-fA-F]{6})$" },
+    "icons": {
+      "type": "array",
+      "minItems": 2,
+      "description": "Generated from the single source icon.svg. MUST include at least one purpose:any icon at 192 and 512, and at least one maskable icon.",
+      "items": {
+        "type": "object",
+        "required": ["src", "sizes", "type"],
+        "properties": {
+          "src": { "type": "string" },
+          "sizes": { "type": "string" },
+          "type": { "type": "string" },
+          "purpose": { "type": "string" }
+        }
+      },
+      "allOf": [
+        {
+          "contains": {
+            "type": "object",
+            "properties": { "sizes": { "const": "512x512" } },
+            "required": ["sizes"]
+          }
+        },
+        {
+          "contains": {
+            "type": "object",
+            "properties": { "purpose": { "pattern": "maskable" } },
+            "required": ["purpose"]
+          }
+        }
+      ]
+    }
+  }
+}

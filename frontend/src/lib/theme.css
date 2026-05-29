@@ -1,0 +1,33 @@
+/* Default: dark (also used when prefers-color-scheme: no-preference). */
+:root {
+  color-scheme: dark light;
+  --ring-bg: #0f1c2e;
+  --ring-fg: #e8eef4;
+  --ring-muted: #9eb3c8;
+  --ring-accent: #1c3550;
+  --ring-btn-bg: #1c3550;
+  --ring-btn-fg: #ffffff;
+  --ring-warn-bg: #3d2e12;
+  --ring-warn-fg: #f5d9a8;
+  --ring-warn-border: #6b4f1d;
+}
+
+@media (prefers-color-scheme: light) {
+  :root {
+    --ring-bg: #f4f7fb;
+    --ring-fg: #0f1c2e;
+    --ring-muted: #4a627a;
+    --ring-accent: #dce6f2;
+    --ring-btn-bg: #0f1c2e;
+    --ring-btn-fg: #ffffff;
+    --ring-warn-bg: #fff4e5;
+    --ring-warn-fg: #663c00;
+    --ring-warn-border: #e6c89a;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--ring-bg);
+  color: var(--ring-fg);
+}
