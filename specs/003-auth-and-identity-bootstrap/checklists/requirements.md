@@ -31,9 +31,14 @@
 
 ## Notes
 
+- The 2026-05-30 clarification session pivoted the auth model from email-magic-link to an
+  anonymous, invite-only, zero-knowledge design; all decisions are recorded in the spec's
+  Clarifications section and reflected in the requirements/success criteria. Re-validated:
+  still passes all items.
 - Implementation specifics from the input seed (Postgres tables, endpoint paths, JWT,
   libsignal, RxDB) were intentionally kept out of the spec body — they belong in `plan.md`.
   Only the verbatim "Input" line preserves the original wording, as the template prescribes.
-- Crypto-protocol nouns (identity key, signed prekey, one-time prekey, key bundle) are domain
-  concepts for an E2EE messenger, not implementation choices, so they remain in Key Entities.
-- All items pass; spec is ready for `/speckit-clarify` (optional) or `/speckit-plan`.
+- Crypto-protocol nouns (identity key, signed prekey, one-time prekey, key bundle, sealed
+  sender) are domain concepts for an anonymous E2EE messenger, not implementation choices,
+  so they remain in the spec.
+- All items pass; spec is ready for `/speckit-plan`.

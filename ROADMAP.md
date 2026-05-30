@@ -17,7 +17,7 @@ feed `/speckit-specify` when starting that spec.
 | --- | ---------------------------------- | :-----: | :-----: | :--: | :---: | :-----: | :-: | :-------: |
 | 001 | repo-skeleton-end-to-end-hello     |   ✅    |   ✅    |  ✅  |  ✅   |   ✅    | ✅  |    ✅     |
 | 002 | pwa-install-and-app-shell          |   ✅    |   ✅    |  ✅  |  ✅   |   ✅    | ✅  |    ✅     |
-| 003 | auth-and-identity-bootstrap        |   ✅    |   ⬜    |  ⬜  |  ⬜   |   ⬜    | ⬜  |    ⬜     |
+| 003 | auth-and-identity-bootstrap        |   ✅    |   ✅    |  ⬜  |  ⬜   |   ⬜    | ⬜  |    ⬜     |
 | 004 | one-to-one-encrypted-messaging     |   ⬜    |   ⬜    |  ⬜  |  ⬜   |   ⬜    | ⬜  |    ⬜     |
 | 005 | web-push-notifications             |   ⬜    |   ⬜    |  ⬜  |  ⬜   |   ⬜    | ⬜  |    ⬜     |
 | 006 | small-group-chat                   |   ⬜    |   ⬜    |  ⬜  |  ⬜   |   ⬜    | ⬜  |    ⬜     |
@@ -91,6 +91,13 @@ _(none yet)_
 > for at-rest encryption of session keys. Integration tests (testcontainers
 > + Playwright): full register → publish → fetch flow; rejects forged tokens;
 > rate-limits per-IP magic-link requests.
+
+> **Note (2026-05-30):** during `/speckit-clarify` the auth model was pivoted away
+> from email magic links to an **anonymous, invite-only, zero-knowledge** design
+> (device-keypair identity, invite-code registration with a console bootstrap code,
+> sealed-sender-compatible delivery, client-encrypted server storage). The libsignal
+> identity/prekey publishing is retained. The seed above is kept for history; the
+> authoritative scope is `specs/003-auth-and-identity-bootstrap/spec.md`.
 
 ### 004 — one-to-one-encrypted-messaging
 

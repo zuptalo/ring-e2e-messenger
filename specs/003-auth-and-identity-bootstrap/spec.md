@@ -8,122 +8,185 @@
 
 **Input**: User description: "User registration via email magic link, session/JWT issuance, and libsignal identity-key publishing. New Postgres tables: users, identity_keys, prekeys. New backend endpoints: POST /api/auth/request (issue magic link), GET /api/auth/callback (verify token, create session), POST /api/keys/publish (upload identity key + signed prekey + one-time prekeys), GET /api/keys/{user} (fetch peer's prekey bundle for X3DH). Frontend: registration flow, libsignal IdentityKeyStore wired to RxDB for at-rest encryption of session keys. Integration tests (testcontainers + Playwright): full register → publish → fetch flow; rejects forged tokens; rate-limits per-IP magic-link requests."
 
+> **Design note**: During clarification (2026-05-30) the authentication model was
+> deliberately changed from the original email-magic-link seed to an **anonymous,
+> invite-only, zero-knowledge** model. Email/SMS are removed entirely; identity is a
+> device-held keypair, registration is gated by invite codes, and the server stores
+> only ciphertext and anonymous identifiers. The libsignal identity/prekey publishing
+> from the seed is retained. See the **Clarifications** section for the decisions.
+
+## Clarifications
+
+### Session 2026-05-30
+
+- Q: Should authentication use email magic links or an anonymous model? → A: Anonymous — identity is a device-generated keypair; no email, SMS, or other PII is collected.
+- Q: What happens if a user loses their key? → A: No recovery — losing the key permanently forfeits the account and all encrypted data; onboarding must strongly guide key backup (password manager / recovery phrase).
+- Q: Metadata / social-graph privacy target for v1? → A: Client-encrypted user-data blobs (server can't read the friends list, etc.) plus a delivery design that hides the sender (sealed-sender-compatible). Full traffic-analysis resistance (timing, cover traffic) is out of scope for v1.
+- Q: How is registration gated? → A: Invite-only. When no users exist, the server prints a one-time bootstrap invite code to its console log; thereafter a newcomer can only join with a valid invite code from an existing user.
+- Q: How are invites delivered, given an installed iOS PWA cannot be deep-linked from a Safari link? → A: As a plain alphanumeric **code** (shown as text/QR) that the newcomer pastes inside the installed PWA during onboarding; any accompanying link only points to the install page, never "opens the app."
+- Q: May the server see the invite graph? → A: Yes (option A) — the server records the anonymous inviter→invitee relationship to enforce single-use and enable abuse mitigation (revoking an invite subtree). Blind/anonymous invites are deferred. The exposure is mild because identities are anonymous public keys, not real people.
+- Q: Invite code lifetime and management? → A: Single-use, valid for **7 days**; a user may mint several codes and revoke any that are still unused; a user may attach a private **nickname** to a code that is stored only on the client and backed up as part of the user's encrypted data (never readable by the server).
+- Q: How is a peer addressed when there is no directory? → A: Out-of-band exchange of an invite code; redeeming an invite establishes the inviter as the new user's first contact.
+- Q: Session model? → A: Server-side, revocable sessions (the server can invalidate a session on logout / compromise).
+
 ## User Scenarios & Testing *(mandatory)*
 
-### User Story 1 - Passwordless sign-in via email link (Priority: P1)
+### User Story 1 - Join the network with an invite code (Priority: P1)
 
-A person opens the installed Ring app, enters their email address, and receives a one-time link by email. Following that link signs them in — creating an account on first use and re-using it thereafter — and lands them in the authenticated app with a session that persists across launches. No password is ever chosen or stored.
+A newcomer installs the app, opens it as a standalone PWA, and is asked for an invite code. They paste a code given to them out-of-band by an existing member. The app generates an anonymous identity keypair on the device, registers it against the code, and drops them into the authenticated app — with no email, phone number, or any personal information requested. The very first member of a brand-new server uses a bootstrap code the server printed to its console log.
 
-**Why this priority**: This is the entry gate to the entire product — without an identity and a session, no other feature (messaging, contacts, push) can exist. It is the minimum viable slice: a person can get a durable, authenticated identity.
+**Why this priority**: This is the gate to the entire product and the heart of the anonymity model. Without invite-gated, PII-free registration there is no network. It is the minimum viable slice: a person can obtain a durable anonymous identity and get in.
 
-**Independent Test**: Submit an email, retrieve the delivered link, follow it, and confirm the app shows an authenticated state that survives an app relaunch. Fully testable on its own with no other story implemented.
+**Independent Test**: With a valid invite code (or the console bootstrap code on an empty server), complete onboarding inside the standalone PWA and confirm an authenticated session exists, with no PII collected. Fully testable alone.
 
 **Acceptance Scenarios**:
 
-1. **Given** an unrecognised email, **When** the person requests a link and follows it, **Then** a new account is created and an authenticated session is established.
-2. **Given** a previously-registered email, **When** the person requests a link and follows it, **Then** they are signed in to the existing account (no duplicate account).
-3. **Given** an authenticated session, **When** the person closes and reopens the app, **Then** they remain signed in without re-requesting a link.
-4. **Given** a link that has already been used once, **When** the person follows it again, **Then** sign-in is refused.
-5. **Given** a link older than its validity window, **When** the person follows it, **Then** sign-in is refused with a clear "request a new link" message.
+1. **Given** an empty server, **When** it starts with no users, **Then** exactly one bootstrap invite code is emitted to the console log and can be redeemed once to create the first account.
+2. **Given** a valid, unused, unexpired invite code, **When** a newcomer redeems it during onboarding, **Then** a new anonymous account is created for their device keypair and an authenticated session is established.
+3. **Given** registration onboarding, **When** the account is created, **Then** no email, phone, or other personal identifier is requested or stored.
+4. **Given** any invite code that is expired (older than 7 days), already redeemed, or revoked, **When** a newcomer attempts to redeem it, **Then** registration is refused with a clear message.
+5. **Given** a successful redemption, **When** the new account is created, **Then** the inviting member becomes the new user's first contact.
+6. **Given** an existing population of users, **When** the server restarts, **Then** no new bootstrap console code is emitted.
 
 ---
 
-### User Story 2 - Publishing my encryption identity (Priority: P2)
+### User Story 2 - Come back / move to a new device with my key (Priority: P1)
 
-Once signed in, the person's device publishes the public cryptographic material that lets others start an end-to-end-encrypted conversation with them: a long-term identity key, a signed prekey, and a batch of one-time prekeys. The person never sees or manages this directly — it happens automatically on first sign-in and is refreshed as needed.
+A returning member opens the app and authenticates by proving possession of their stored key — typically auto-filled from their password manager, or by pasting their recovery secret on a new device. They regain their identity and can decrypt their data. There is no email reset: the key is the only way back, and the app makes that responsibility clear and helps them back it up at registration.
 
-**Why this priority**: An authenticated account that cannot be contacted securely is inert. Publishing identity material is what makes a user a reachable participant in the encrypted network; it is the prerequisite the next feature (1:1 messaging) consumes. It depends on P1 (must be signed in to publish).
+**Why this priority**: An anonymous identity is worthless if it isn't durable. Recovery-by-key is what makes the keypair a real account rather than a throwaway, and the "no reset" reality must be communicated up front so users don't lose everything.
 
-**Independent Test**: As a signed-in user, trigger key publication and confirm the account is now associated with a complete, retrievable public key set, while no private material leaves the device.
+**Independent Test**: Register, back up the key, then re-authenticate on a second client using only that key and confirm the same identity and encrypted data are restored; confirm there is no email/password reset path.
+
+**Acceptance Scenarios**:
+
+1. **Given** a registered user who saved their key, **When** they re-open the app on the same device, **Then** they are signed in by proving key possession, without re-registering.
+2. **Given** a registered user, **When** they load their stored key/recovery secret on a new device, **Then** they recover the same anonymous identity and can decrypt their server-stored data.
+3. **Given** onboarding, **When** the identity is created, **Then** the user is clearly warned that losing the key is unrecoverable and is guided to back it up (e.g., to a password manager).
+4. **Given** a user who lost their key, **When** they seek recovery, **Then** the system offers no reset path (by design) and the prior account/data remain inaccessible.
+
+---
+
+### User Story 3 - Publish my encryption identity (Priority: P2)
+
+After joining, the user's device publishes the public cryptographic material that lets others start an end-to-end-encrypted conversation with them — a long-term identity key, a signed prekey, and a batch of one-time prekeys — automatically and without exposing any private key.
+
+**Why this priority**: A registered identity that can't be contacted securely is inert; publishing prekey material makes the user a reachable participant and is the prerequisite the messaging feature consumes. Depends on P1.
+
+**Independent Test**: As a registered user, trigger publication and confirm the account is associated with a complete, retrievable public key set while no private material leaves the device.
 
 **Acceptance Scenarios**:
 
 1. **Given** a freshly registered user, **When** their device publishes identity material, **Then** the account is associated with one identity key, one signed prekey, and a batch of one-time prekeys.
-2. **Given** a user who has already published, **When** their device republishes (e.g., to replenish one-time prekeys), **Then** the stored set is updated for that account and no other account is affected.
+2. **Given** a user who already published, **When** their device republishes to replenish one-time prekeys, **Then** their stored set is updated and no other account is affected.
 3. **Given** any published user, **When** their stored material is inspected, **Then** only public components are present — no private keys are ever transmitted or stored server-side.
 
 ---
 
-### User Story 3 - Fetching a peer's key bundle to start a conversation (Priority: P3)
+### User Story 4 - Mint and manage invite codes (Priority: P2)
 
-A signed-in person looks up another registered user and retrieves that peer's published key bundle — enough to establish an encrypted session with them — including one of the peer's one-time prekeys when any remain.
+A member generates invite codes to bring people in. Each code is single-use and valid for 7 days. They can see their outstanding codes, give each a private nickname (to remember who it's for) that only they can read, and revoke any code that hasn't been used yet.
 
-**Why this priority**: This closes the loop that makes published identities useful: it is the lookup the initiating side performs before the first encrypted message. It depends on P2 (there must be published material to fetch).
+**Why this priority**: The network only grows through members minting invites, and the abuse model depends on codes being controllable (revocable, time-bounded, single-use). The private nickname is a usability aid that must respect the zero-knowledge guarantee. Depends on P1.
 
-**Independent Test**: With two registered, published users, have user A fetch user B's bundle and confirm it contains the components needed to begin an encrypted session, and that a one-time prekey is handed out and not re-handed to the next fetch.
+**Independent Test**: As a member, mint a code, attach a nickname, confirm the nickname is unreadable to the server, revoke the code while unused, and confirm it can no longer be redeemed.
 
 **Acceptance Scenarios**:
 
-1. **Given** a peer who has published material with one-time prekeys remaining, **When** a signed-in user fetches that peer's bundle, **Then** the bundle includes the peer's identity key, signed prekey, and exactly one unused one-time prekey.
-2. **Given** a peer whose one-time prekeys are exhausted, **When** a signed-in user fetches that peer's bundle, **Then** the bundle is still returned with the identity key and signed prekey and is explicitly marked as having no one-time prekey.
-3. **Given** the same peer, **When** two different users each fetch a bundle, **Then** no single one-time prekey is handed to more than one fetcher.
+1. **Given** an authenticated member, **When** they mint an invite code, **Then** a single-use code valid for 7 days is created and shown as text and a scannable form.
+2. **Given** a member with outstanding codes, **When** they revoke a code that has not been redeemed, **Then** that code can no longer be redeemed.
+3. **Given** a code that has already been redeemed, **When** the member attempts to revoke it, **Then** the existing account created from it is unaffected (revocation only prevents future redemption).
+4. **Given** a member attaches a nickname to a code, **When** the nickname is stored, **Then** it is held only as part of the member's client-encrypted data and is never readable by the server.
+5. **Given** a code older than 7 days, **When** anyone attempts to redeem it, **Then** it is rejected as expired.
+
+---
+
+### User Story 5 - Fetch a peer's key bundle to start a conversation (Priority: P3)
+
+A member retrieves another member's published key bundle — enough to establish an encrypted session — including one of the peer's one-time prekeys when any remain.
+
+**Why this priority**: This closes the loop that makes published identities useful — the lookup the initiating side performs before the first encrypted message. Depends on P3 (there must be published material).
+
+**Independent Test**: With two registered, published members, have one fetch the other's bundle and confirm it contains the components to begin an encrypted session, and that a one-time prekey is handed out only once.
+
+**Acceptance Scenarios**:
+
+1. **Given** a peer who published with one-time prekeys remaining, **When** a member fetches that peer's bundle, **Then** it includes the peer's identity key, signed prekey, and exactly one unused one-time prekey.
+2. **Given** a peer whose one-time prekeys are exhausted, **When** a member fetches that peer's bundle, **Then** a usable bundle (identity key + signed prekey) is still returned, marked as having no one-time prekey.
+3. **Given** the same peer, **When** two different members each fetch a bundle, **Then** no single one-time prekey is handed to more than one of them.
 4. **Given** an unauthenticated caller, **When** they attempt to fetch any bundle, **Then** the request is refused.
 
 ---
 
 ### Edge Cases
 
-- **Account enumeration**: requesting a link for an unknown email behaves indistinguishably (same response, same timing characteristics) from requesting one for a known email, so an attacker cannot probe who has an account.
-- **Abuse / flooding**: repeated link requests from one source beyond a threshold are throttled rather than continuing to send mail.
-- **Tampered token**: a link whose token has been altered is refused exactly like an invalid one.
-- **Email never arrives / delivery fails**: the person can request a fresh link; an expired or undelivered link never grants access.
-- **One-time prekey depletion**: peers can still start conversations (degrade to identity + signed prekey only) until the owner's device replenishes the batch.
-- **Concurrent bundle fetches**: simultaneous fetches for the same peer must not hand the same one-time prekey to two callers.
-- **Publishing without a session / for another account**: refused — only the authenticated owner may publish or replace their own keys.
-- **Existing functionality**: the prior skeleton routes and behavior (home shell, health check) remain unchanged; this feature is purely additive.
+- **Invalid invite**: expired (>7 days), already redeemed, or revoked codes are all rejected at redemption.
+- **Concurrent redemption** of the same single-use code: only one redemption succeeds; the other is rejected.
+- **Bootstrap idempotence**: the console bootstrap code is emitted only while zero users exist; if it expires unused on an empty server, a fresh one is emitted on next start; once any user exists, none is emitted.
+- **Lost key**: no recovery path exists; the account and all its encrypted data are permanently inaccessible (communicated up front).
+- **Same key on multiple devices**: loading the key on a new device is treated as recovery/move of a single logical identity; concurrent multi-device sessions and per-device key management are out of scope for v1.
+- **One-time prekey depletion**: peers can still start conversations with identity + signed prekey until the owner's device replenishes the batch.
+- **Concurrent bundle fetches**: simultaneous fetches for one peer must not hand the same one-time prekey to two callers.
+- **Publishing/minting without a session, or acting on another account**: refused — only the authenticated owner may publish keys, mint/revoke their codes, or read/write their data.
+- **Abuse**: an invite (sub)tree can be revoked to cut off a bad actor's downstream invitees.
+- **Existing functionality**: prior features' routes, the app shell, the health check, and the install-first PWA onboarding continue to work unchanged; invite-code entry happens inside the standalone app (no deep link).
 
 ## Requirements *(mandatory)*
 
 ### Functional Requirements
 
-- **FR-001**: The system MUST let a person initiate sign-in by submitting only an email address (no password).
-- **FR-002**: The system MUST deliver a single-use, time-limited sign-in link to the submitted email address.
-- **FR-003**: On the first successful verification for an unrecognised email, the system MUST create a new account; for a recognised email it MUST sign in the existing account without creating a duplicate.
-- **FR-004**: The system MUST refuse verification links that are expired, already used, or tampered with, and MUST surface a clear path to request a new one.
-- **FR-005**: The system MUST rate-limit sign-in-link requests per originating source so that abuse and mass-mailing are prevented.
-- **FR-006**: The system MUST NOT reveal whether a given email already has an account (no account enumeration via the request step).
-- **FR-007**: On successful verification the system MUST establish an authenticated session that authorizes subsequent requests and that the client can persist across app launches.
-- **FR-008**: The system MUST allow the signed-in client to validate/refresh its session and MUST reject requests bearing missing, expired, or invalid session credentials.
-- **FR-009**: An authenticated user MUST be able to publish their public encryption identity: one long-term identity key, one signed prekey, and a batch of one-time prekeys.
-- **FR-010**: The system MUST associate published key material with exactly the authenticated owner account and MUST allow only that owner to publish or replace it.
-- **FR-011**: The system MUST never accept, transmit, or store private key material; only public key components are published and retrievable.
-- **FR-012**: An authenticated user MUST be able to fetch another registered user's key bundle sufficient to initiate an encrypted session.
-- **FR-013**: When fetching a bundle, the system MUST hand out at most one of the peer's one-time prekeys and MUST NOT hand the same one-time prekey to more than one fetcher.
-- **FR-014**: When a peer's one-time prekeys are exhausted, the system MUST still return a usable bundle (identity key + signed prekey) and indicate that no one-time prekey was included.
-- **FR-015**: The client MUST protect locally-stored session and identity secrets at rest on the device.
-- **FR-016**: All key-publishing and key-fetching actions MUST require a valid authenticated session.
-- **FR-017**: The feature MUST be additive — existing prior-feature routes, the app shell, and the health contract MUST continue to function unchanged.
+- **FR-001**: Identity MUST be a device-generated keypair; the system MUST NOT request or store email, phone number, or other personally identifying information.
+- **FR-002**: The system MUST authenticate a client by verifying possession of its private key (e.g., signing a server-issued challenge); there MUST be no passwords.
+- **FR-003**: A user MUST be able to re-authenticate on the same or a new device by supplying their stored key / recovery secret, recovering the same identity and access to their encrypted data.
+- **FR-004**: The system MUST clearly warn during onboarding that losing the key is unrecoverable (account + all encrypted data are permanently lost) and MUST guide the user to back the key up (e.g., to a password manager / recovery phrase). No email/password reset path may exist.
+- **FR-005**: On successful authentication the system MUST establish a server-side, revocable session that authorizes subsequent requests and can be invalidated server-side (logout / compromise).
+- **FR-006**: Account creation MUST require a valid, unused, unexpired invite code; without one, no account can be created.
+- **FR-007**: When no users exist, the system MUST emit exactly one bootstrap invite code to the server console log so the first user can join, and MUST stop emitting bootstrap codes once any user exists.
+- **FR-008**: An authenticated user MUST be able to mint invite codes; each MUST be single-use and valid for 7 days, and presentable as both text and a scannable form.
+- **FR-009**: An authenticated user MUST be able to list and revoke their own still-unused, still-valid codes; revoked, expired, or already-redeemed codes MUST NOT be redeemable.
+- **FR-010**: Redeeming an invite code MUST establish the inviting user as the new user's first contact.
+- **FR-011**: The system MUST record the inviter→invitee relationship between anonymous identities sufficiently to enforce single-use and to support abuse mitigation by revoking an invite subtree.
+- **FR-012**: A user MUST be able to attach a private nickname to an invite code; the nickname MUST be stored only client-side and backed up as part of the user's encrypted data, and MUST never be readable by the server.
+- **FR-013**: An authenticated user MUST be able to publish their public encryption identity (identity key + signed prekey + a batch of one-time prekeys), tied to their account.
+- **FR-014**: Only the owner MUST be able to publish or replace their own key material; the system MUST never accept, transmit, or store private key material.
+- **FR-015**: An authenticated user MUST be able to fetch another user's key bundle (identity key + signed prekey + one one-time prekey when available); at most one one-time prekey is handed out and the same one is never handed to more than one fetcher.
+- **FR-016**: When a peer's one-time prekeys are exhausted, the system MUST still return a usable bundle (identity key + signed prekey) marked as having no one-time prekey.
+- **FR-017**: User-owned state (first contact, invite-code nicknames, and other client data) MUST be stored on the server only as client-encrypted blobs that the server cannot read.
+- **FR-018**: The server MUST persist only ciphertext and anonymous public identifiers — never real-world identity — and the architecture MUST NOT require the server to know a message's sender (forward-compatible with sealed-sender delivery in the messaging feature).
+- **FR-019**: All authenticated actions (minting/revoking invites, publishing keys, fetching bundles, reading/writing user data) MUST require a valid session.
+- **FR-020**: The feature MUST be additive: prior features' routes, the app shell, the health contract, and the install-first PWA onboarding MUST continue to function unchanged, and invite-code entry MUST occur inside the standalone PWA (not via a deep link).
 
 ### Key Entities *(include if feature involves data)*
 
-- **Account (User)**: A person's durable identity in Ring, established by a verified email address; carries a stable internal identifier other features reference. One account per verified email.
-- **Sign-in Link / Verification Token**: A single-use, time-limited credential bound to one email request; consumed on first successful use; never valid after expiry or reuse.
-- **Session**: The authenticated state issued after verification that authorizes a person's subsequent actions and persists on their device until it expires or is revoked.
-- **Identity Key**: A user's long-term public identity for end-to-end encryption; the anchor other users trust when starting a conversation.
-- **Signed Prekey**: A medium-lived public prekey vouched for by the identity key, offered to peers initiating a session.
-- **One-Time Prekey**: A single-use public prekey consumed by exactly one peer when starting a conversation; supplied in batches and replenished by the owner's device.
-- **Key Bundle**: The published public set (identity key + signed prekey + optional one-time prekey) a peer retrieves to begin an encrypted session.
+- **Identity (Account)**: An anonymous member, represented by a public key; carries a stable internal identifier other features reference. No PII. One identity per keypair.
+- **Keypair / Recovery Secret**: The private key (or a seed phrase deriving it) held by the user and backed up externally; the sole means of authentication and recovery.
+- **Session**: Server-side, revocable authenticated state issued after key-possession is proven; persists on the device until it expires or is revoked.
+- **Invite Code**: A single-use credential valid for 7 days, minted by a member; revocable while unused; on redemption it creates the inviter→invitee link and bootstraps first contact. Carries an optional **client-only nickname** stored as encrypted user data.
+- **Identity Key / Signed Prekey / One-Time Prekey / Key Bundle**: The published public material a peer retrieves to begin an encrypted session (one-time prekeys are single-use and replenished by the owner).
+- **Encrypted User-Data Blob**: A client-encrypted store of the member's own state (first contact, invite nicknames, settings) that the server holds but cannot read.
 
 ## Success Criteria *(mandatory)*
 
 ### Measurable Outcomes
 
-- **SC-001**: A new person can go from entering their email to an authenticated, persisted session in under 2 minutes (excluding email-delivery latency outside the system's control).
-- **SC-002**: 100% of expired, already-used, or tampered sign-in links are refused — there is no input that grants a session without a valid, unused, unexpired link.
-- **SC-003**: Sign-in-link requests from a single source beyond the configured threshold are throttled rather than sent, demonstrably resisting flooding and enumeration.
-- **SC-004**: After a user publishes, any authenticated peer fetching that user's bundle always receives a complete bundle (identity key + signed prekey present 100% of the time; a one-time prekey included whenever the batch is non-empty).
-- **SC-005**: No retrieval path ever returns private key material — verified by inspecting every published/fetched payload.
-- **SC-006**: A single one-time prekey is never delivered to two different fetchers across concurrent and sequential requests.
-- **SC-007**: A request for a sign-in link is indistinguishable (response shape and timing) between an existing and a non-existing email, preventing account enumeration.
-- **SC-008**: Locally-stored session/identity secrets are unreadable at rest without the user's device-held protection.
-- **SC-009**: All prior-feature contracts (app shell at the root, health check) continue to pass unchanged after this feature ships.
+- **SC-001**: A newcomer with a valid invite code can register and reach an authenticated session in under 2 minutes, providing zero email/phone/PII.
+- **SC-002**: 100% of account-creation attempts lacking a valid, unused, unexpired invite code are rejected.
+- **SC-003**: On an empty server the first user can join only via the console-logged bootstrap code, and once any user exists no further bootstrap code is emitted (verified across restarts).
+- **SC-004**: Invite codes are non-redeemable in 100% of cases once they are older than 7 days, already redeemed, or revoked.
+- **SC-005**: A user can re-authenticate and recover their identity + encrypted data on a new device using only their stored key, with no server-side reset path available.
+- **SC-006**: The server stores no PII and no plaintext user data — every user-data field, including invite nicknames, is opaque ciphertext to the server (verified by inspecting stored records).
+- **SC-007**: After publishing, any authenticated peer fetching a user's bundle receives identity key + signed prekey 100% of the time, plus exactly one unique one-time prekey while the batch is non-empty, with no one-time prekey ever reused across fetchers (including under concurrency).
+- **SC-008**: Locally-stored keys and secrets are unreadable at rest without the user's device-held protection.
+- **SC-009**: All prior-feature contracts (app shell at the root, health check, PWA install/onboarding) continue to pass unchanged after this feature ships.
 
 ## Assumptions
 
-- **Delivery channel**: Email is the sole sign-in channel for this feature; the system sends the link by email, and automated tests intercept the link rather than relying on a real inbox. Choice of email provider is an implementation detail deferred to planning.
-- **Link validity & throttle thresholds**: Reasonable security defaults are assumed (a short link lifetime on the order of ~15 minutes; a small per-source request quota per hour); exact values are tuned in planning and need not change scope.
-- **Single device per account (v1)**: Each account bootstraps one device's identity. Multi-device key management and key rotation/verification UX (safety numbers) are out of scope for this feature and handled later.
-- **Encryption protocol**: Identity/prekey concepts follow the established X3DH-style model the project has already committed to (constitution-locked cryptography library); this feature establishes and publishes identity material but does not itself send encrypted messages — that is the next feature.
-- **No password/recovery flows**: Passwordless email links are the only authentication method; password reset, social login, and account recovery are out of scope.
-- **Reuse of existing stack**: Persistence, the single embedded image, the reverse-proxy/TLS path, and the on-device encrypted store introduced in earlier features are reused; this feature adds tables, endpoints, and client flows on top without changing prior contracts.
-- **Server stores only public material**: The server holds account records and published *public* key components; all private keys remain on the user's device.
+- **Anonymous identity, no recovery**: Identity is a device keypair; the user's stored key/recovery secret is the only way back. Lost key = permanently lost account and data — accepted by design, mitigated only by strong backup UX.
+- **Invite mechanics**: Codes are single-use, valid 7 days; a member can mint several and revoke unused ones; each code may carry a private, client-only nickname backed up as encrypted user data. The first user joins via a one-time bootstrap code printed to the server console.
+- **Invite delivery**: Invites travel as codes (text/QR) entered inside the installed PWA; any link only points to the install page. This deliberately avoids relying on opening links into an installed iOS home-screen PWA (not supported without a native app).
+- **Metadata posture (v1)**: The friends list and other user data are stored as client-encrypted blobs (server cannot read them), and the design keeps message delivery sender-anonymous (sealed-sender-compatible). Resistance to traffic-analysis (timing, volume, cover traffic) is out of scope for v1. The server may see the anonymous invite graph (inviter→invitee by public key) for single-use enforcement and abuse mitigation.
+- **Single logical device per identity (v1)**: The key can be moved/recovered to a new device, but concurrent multi-device sessions, per-device keys, and device-linking UX are out of scope for this feature.
+- **Scope boundary**: This feature establishes identity, anonymous authentication, invite-only registration, encryption-key publishing/fetch, and zero-knowledge user-data storage. Sending encrypted messages, sealed-sender delivery, and media are the messaging feature (004+); this feature only makes that possible.
+- **Stack reuse**: The constitution-locked cryptography (X3DH-style identity/prekeys), the single embedded image, the reverse-proxy/TLS path, and the on-device encrypted store from earlier features are reused; this feature adds storage, endpoints, and client flows without changing prior contracts.
+- **Server stores only public/ciphertext**: The server holds anonymous account records, published *public* key components, the invite graph, and opaque encrypted blobs; all private keys and all plaintext user data remain on the user's device.
+- **Divergence from ROADMAP seed**: The original 003 seed (email magic link + session/JWT) is superseded by this anonymous, invite-only, zero-knowledge model per the 2026-05-30 clarification; the libsignal identity/prekey portion of the seed is retained.
