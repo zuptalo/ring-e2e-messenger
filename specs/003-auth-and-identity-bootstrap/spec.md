@@ -28,6 +28,8 @@
 - Q: Invite code lifetime and management? → A: Single-use, valid for **7 days**; a user may mint several codes and revoke any that are still unused; a user may attach a private **nickname** to a code that is stored only on the client and backed up as part of the user's encrypted data (never readable by the server).
 - Q: How is a peer addressed when there is no directory? → A: Out-of-band exchange of an invite code; redeeming an invite establishes the inviter as the new user's first contact.
 - Q: Session model? → A: Server-side, revocable sessions (the server can invalidate a session on logout / compromise).
+- Q: Retention for inactive accounts? → A: Hard-delete an account and all its account-scoped data after a configurable period (default 365 days) with no authenticated activity; any authenticated action resets the timer. Purge is silent (no PII channel to warn) and disclosed at registration and sign-in. If a purge empties the server, the console bootstrap re-activates.
+- Q: Should disappearing messages, presence/last-seen, receipts, profile-sharing prompts, and hidden chats be in 003? → A: No — those belong to feature 004 (messaging: per-message + on-the-fly per-conversation TTL, sent/delivered/seen receipts, system messages, Viber-style hidden chats) and a new presence-and-privacy feature. 003 only lays compatible foundations (see Non-Goals & Forward-Compatibility).
 
 ## User Scenarios & Testing *(mandatory)*
 
@@ -130,6 +132,9 @@ A member retrieves another member's published key bundle — enough to establish
 - **Publishing/minting without a session, or acting on another account**: refused — only the authenticated owner may publish keys, mint/revoke their codes, or read/write their data.
 - **Abuse**: an invite (sub)tree can be revoked to cut off a bad actor's downstream invitees.
 - **Existing functionality**: prior features' routes, the app shell, the health check, and the install-first PWA onboarding continue to work unchanged; invite-code entry happens inside the standalone app (no deep link).
+- **Inactivity purge is silent**: there is no channel to warn an inactive user before deletion, so the purge is silent; the policy is instead disclosed at registration and sign-in.
+- **Purge cascade & orphans**: deleting an account removes its keys, sessions, invites, invite-graph edges, and encrypted blobs; peers/invitees that referenced it simply find the user "no longer exists" (their own encrypted data is untouched and unreadable by the server).
+- **Re-bootstrap after purge**: if a purge removes the last remaining account, the server returns to the empty state and re-emits a console bootstrap code.
 
 ## Requirements *(mandatory)*
 
@@ -155,6 +160,8 @@ A member retrieves another member's published key bundle — enough to establish
 - **FR-018**: The server MUST persist only ciphertext and anonymous public identifiers — never real-world identity — and the architecture MUST NOT require the server to know a message's sender (forward-compatible with sealed-sender delivery in the messaging feature).
 - **FR-019**: All authenticated actions (minting/revoking invites, publishing keys, fetching bundles, reading/writing user data) MUST require a valid session.
 - **FR-020**: The feature MUST be additive: prior features' routes, the app shell, the health contract, and the install-first PWA onboarding MUST continue to function unchanged, and invite-code entry MUST occur inside the standalone PWA (not via a deep link).
+- **FR-021**: The system MUST treat an account as inactive after a configurable retention period (default 365 days) with no authenticated activity, and MUST then permanently (hard) delete the account and all account-scoped server-side data — identity record, published key material, sessions, invite codes it minted, its invite-graph edges, and its encrypted user-data blobs. Later features MUST purge their own account-scoped data (e.g. messages, media, mailbox) under the same trigger. Any authenticated action MUST reset the inactivity timer.
+- **FR-022**: The system MUST disclose the inactivity-deletion policy to the user at registration and on sign-in (the only available channels, since there is no email/PII to send a warning to); deletion otherwise occurs silently.
 
 ### Key Entities *(include if feature involves data)*
 
@@ -163,7 +170,7 @@ A member retrieves another member's published key bundle — enough to establish
 - **Session**: Server-side, revocable authenticated state issued after key-possession is proven; persists on the device until it expires or is revoked.
 - **Invite Code**: A single-use credential valid for 7 days, minted by a member; revocable while unused; on redemption it creates the inviter→invitee link and bootstraps first contact. Carries an optional **client-only nickname** stored as encrypted user data.
 - **Identity Key / Signed Prekey / One-Time Prekey / Key Bundle**: The published public material a peer retrieves to begin an encrypted session (one-time prekeys are single-use and replenished by the owner).
-- **Encrypted User-Data Blob**: A client-encrypted store of the member's own state (first contact, invite nicknames, settings) that the server holds but cannot read.
+- **Encrypted User-Data Blob**: A general-purpose, client-encrypted store of the member's own state that the server holds but cannot read — currently first contact and invite-code nicknames, and the deliberate extension point for future client settings (per-conversation message TTLs, presence-visibility grants, hidden-conversation flags + PIN, profile, contact list) so they need no server schema change.
 
 ## Success Criteria *(mandatory)*
 
@@ -178,6 +185,7 @@ A member retrieves another member's published key bundle — enough to establish
 - **SC-007**: After publishing, any authenticated peer fetching a user's bundle receives identity key + signed prekey 100% of the time, plus exactly one unique one-time prekey while the batch is non-empty, with no one-time prekey ever reused across fetchers (including under concurrency).
 - **SC-008**: Locally-stored keys and secrets are unreadable at rest without the user's device-held protection.
 - **SC-009**: All prior-feature contracts (app shell at the root, health check, PWA install/onboarding) continue to pass unchanged after this feature ships.
+- **SC-010**: After the configurable retention period (default 365 days) with no authenticated activity, 100% of the account's server-side data is permanently removed and its key bundle is no longer fetchable; any authenticated action within the period resets the timer. The retention period is operator-configurable.
 
 ## Assumptions
 
@@ -189,4 +197,17 @@ A member retrieves another member's published key bundle — enough to establish
 - **Scope boundary**: This feature establishes identity, anonymous authentication, invite-only registration, encryption-key publishing/fetch, and zero-knowledge user-data storage. Sending encrypted messages, sealed-sender delivery, and media are the messaging feature (004+); this feature only makes that possible.
 - **Stack reuse**: The constitution-locked cryptography (X3DH-style identity/prekeys), the single embedded image, the reverse-proxy/TLS path, and the on-device encrypted store from earlier features are reused; this feature adds storage, endpoints, and client flows without changing prior contracts.
 - **Server stores only public/ciphertext**: The server holds anonymous account records, published *public* key components, the invite graph, and opaque encrypted blobs; all private keys and all plaintext user data remain on the user's device.
+- **Retention**: accounts inactive for a configurable period (default 365 days) are hard-deleted along with all account-scoped data; the timer resets on any authenticated activity; the purge is silent (disclosed at registration/sign-in). Related housekeeping (expired unused invite codes, dead sessions) is swept promptly on its own cadence.
 - **Divergence from ROADMAP seed**: The original 003 seed (email magic link + session/JWT) is superseded by this anonymous, invite-only, zero-knowledge model per the 2026-05-30 clarification; the libsignal identity/prekey portion of the seed is retained.
+
+## Non-Goals & Forward-Compatibility
+
+This feature deliberately excludes messaging, presence, and related UX — those are later features (004 messaging; the new presence-and-privacy feature). 003 only ensures its foundations do not block them:
+
+- **General-purpose encrypted store**: the user-data blob is generic so future client settings (per-conversation message TTLs, presence-visibility grants, hidden-conversation flags + PIN, profile, contact list) require no server schema change.
+- **Server-held expiry metadata**: stored ciphertext is designed to carry a server-visible expiry timestamp so disappearing messages (per-message and on-the-fly per-conversation TTL for new messages of any type — feature 004) can be purged server-side even if never delivered; the server sees *when* to delete, never *what*.
+- **Server is never a presence oracle**: the retention "last active" timestamp is server-internal and never user-visible. User-facing online status / last seen is a separate, end-to-end-controlled signal shared only with granted contacts (global on/off + per-conversation overrides), delivered later so the server never learns activity patterns or the social graph.
+- **Extensible, sender-anonymous message envelope**: receipts (sent/delivered/seen), system messages (e.g., a profile-share prompt), and presence pings are typed payloads over the sealed-sender channel; 003 keeps the envelope extensible.
+- **Hidden conversations are client-side**: a Viber-style hidden chat is a client flag + PIN held in the encrypted store; the server never knows a conversation is hidden.
+
+**Out of scope for 003**: sending/receiving messages, media, message-TTL enforcement, receipts, presence/last-seen, profile-sharing prompts, hidden-chat UX, multi-device, and blind invites.

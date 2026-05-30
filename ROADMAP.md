@@ -25,6 +25,7 @@ feed `/speckit-specify` when starting that spec.
 | 008 | message-history-and-archival       |   ⬜    |   ⬜    |  ⬜  |  ⬜   |   ⬜    | ⬜  |    ⬜     |
 | 009 | observability-and-error-reporting  |   ⬜    |   ⬜    |  ⬜  |  ⬜   |   ⬜    | ⬜  |    ⬜     |
 | 010 | admin-and-ops                      |   ⬜    |   ⬜    |  ⬜  |  ⬜   |   ⬜    | ⬜  |    ⬜     |
+| 011 | presence-and-privacy-controls      |   ⬜    |   ⬜    |  ⬜  |  ⬜   |   ⬜    | ⬜  |    ⬜     |
 
 ## Ad-hoc Features (101–199)
 
@@ -106,9 +107,17 @@ _(none yet)_
 > (`message_envelopes`: id, recipient_user_id, ciphertext, created_at,
 > delivered_at). MessageDispatch fans out to connected sockets and persists
 > for offline recipients. Offline queue in RxDB on the client flushes on
-> `visibilitychange → visible`. Integration test: two headless browsers
-> exchange encrypted messages, one initially offline; both browsers' RxDB
-> stores end with the same plaintext after sync.
+> `visibilitychange → visible`. Every message (any type) carries a
+> TTL/disappearing timer; a user can change a conversation's TTL on the fly,
+> applying it to new messages, and envelopes store a server-visible expiry so
+> undelivered messages self-purge. Sent/delivered/seen receipts and typed
+> system messages (e.g., a "share your profile?" prompt) ride the same
+> channel. A conversation can be hidden Viber-style (client-side flag + PIN;
+> the server never knows a chat is hidden). Integration test: two headless
+> browsers exchange encrypted messages, one initially offline; both browsers'
+> RxDB stores end with the same plaintext after sync, and a per-conversation
+> TTL expires new messages. Presence/last-seen + visibility controls are
+> feature 011.
 
 ### 005 — web-push-notifications
 
@@ -162,6 +171,20 @@ _(none yet)_
 > test: admin token can suspend; suspended user's WebSocket is forcibly
 > closed and reconnect is rejected; non-admin token cannot reach
 > `/api/admin/*`.
+
+### 011 — presence-and-privacy-controls
+
+> Online status and last-seen as an end-to-end-controlled signal, plus the
+> privacy switches around it. Visibility is opt-in: a user can expose online
+> status / last seen to all friends or to no one, with per-conversation
+> overrides (e.g., hidden to everyone except one specific party in a
+> conversation). Presence is shared peer-to-peer as encrypted signals only to
+> granted contacts — the server must NEVER become a presence/last-seen oracle
+> (that would leak the social graph + activity patterns). Distinct from the
+> server-internal retention "last active" timestamp in feature 003, which is
+> never user-visible. Likely also houses read-receipt and typing-indicator
+> visibility toggles. Tests: a user toggles global + per-conversation presence
+> visibility and only granted peers can observe online/last-seen.
 
 ### 103 — release-engineering (ad-hoc)
 
